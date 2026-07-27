@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inframind-model-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-model
+  template:
+    metadata:
+      labels:
+        app: mock-model
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8000"
+    spec:
+      containers:
+      - name: fastapimodel
+        image: inframind-mock-model:v1
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8000
