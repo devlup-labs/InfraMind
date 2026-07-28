@@ -4,3 +4,12 @@ transformers>=4.38.0
 torch>=2.2.0
 prometheus-fastapi-instrumentator>=7.0.0
 python-json-logger>=2.0.7
+prometheus-api-client
+kubernetes
+qdrant-client
+sentence-transformers
+groq
+python-dotenv
+langgraph
+langchain-core
+requests
