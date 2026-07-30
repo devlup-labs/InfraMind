@@ -3,7 +3,7 @@ import uuid
 
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import Distance, VectorParams, PointStruct , Filter
 
 from embedding import generate_embeddings
 
@@ -63,3 +63,20 @@ def store_logs(logs: list[str]):
     )
 
     print(f"Stored {len(points)} logs in Qdrant.")
+
+
+def search_logs(query: str, limit: int = 5):
+    """
+    Searches Qdrant for logs similar to the query.
+    """
+
+    query_vector = generate_embeddings([query])[0]
+
+    results = client.search(
+        collection_name=COLLECTION_NAME,
+        query_vector=query_vector,
+        limit=limit,
+    )
+
+    return [point.payload["log"] for point in results]
+
