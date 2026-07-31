@@ -18,7 +18,7 @@ spec:
     spec:
       containers:
       - name: fastapimodel
-        image: inframind-mock-model:v1
+        image: inframind-model:latest
         imagePullPolicy: Never
         ports:
         - containerPort: 8000

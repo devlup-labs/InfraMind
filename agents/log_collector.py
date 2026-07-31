@@ -11,6 +11,7 @@ def get_pod_name() -> str:
             "kubectl",
             "get",
             "pods",
+            "-n", "monitoring",
             "-l",
             "app=mock-model",
             "-o",
@@ -35,6 +36,7 @@ def collect_logs(tail: int = 200) -> list[str]:
         [
             "kubectl",
             "logs",
+            "-n", "monitoring",
             pod_name,
             f"--tail={tail}",
         ],
