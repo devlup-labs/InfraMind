@@ -6,12 +6,14 @@ from monitoring_agent import run_monitoring_agent
 from log_collector import collect_logs
 from qdrant_manager import create_collection, store_logs
 from root_cause_agent import root_cause_agent
+from reporting_agent import reporting_agent
 
 
 class GraphState(TypedDict):
     analysis: dict
     logs: list[str]
     root_cause:str
+    incident_report: str
 
 
 def monitoring_node(state: GraphState):
@@ -48,6 +50,7 @@ builder.add_node("monitoring", monitoring_node)
 builder.add_node("collect_logs", collect_logs_node)
 builder.add_node("store_logs", store_logs_node)
 builder.add_node("root_cause", root_cause_agent)
+builder.add_node("reporting", reporting_agent)
 
 builder.add_edge(START, "monitoring")
 
@@ -62,7 +65,8 @@ builder.add_conditional_edges(
 
 builder.add_edge("collect_logs", "store_logs")
 builder.add_edge("store_logs", "root_cause")
-builder.add_edge("root_cause", END)
+builder.add_edge("root_cause", "reporting")
+builder.add_edge("reporting", END)
 
 app = builder.compile()
 
@@ -72,3 +76,5 @@ if __name__ == "__main__":
     result = app.invoke({})
     print("\n--- ROOT CAUSE ANALYSIS ---")
     print(result.get("root_cause", "No root cause was generated."))
+    print("\n--- INCIDENT REPORT ---")
+    print(result.get("incident_report", "No incident report was generated."))

@@ -58,7 +58,7 @@ Reason:
     logs=search_logs(query)
     root_cause=analyze_root_cause(analysis,logs)
 
-    return {"root_cause": root_cause}
+    return {"root_cause": root_cause, "logs": logs}
 
 
     
