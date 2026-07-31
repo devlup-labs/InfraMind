@@ -7,7 +7,7 @@ from qdrant_client.models import Distance, VectorParams, PointStruct , Filter
 
 from embedding import generate_embeddings
 
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 QDRANT_URL = os.getenv("QDRANT_URL")
 COLLECTION_NAME = os.getenv("QDRANT_COLLECTION")
@@ -72,11 +72,10 @@ def search_logs(query: str, limit: int = 5):
 
     query_vector = generate_embeddings([query])[0]
 
-    results = client.search(
+    results = client.query_points(
         collection_name=COLLECTION_NAME,
-        query_vector=query_vector,
+        query=query_vector,
         limit=limit,
-    )
+    ).points
 
     return [point.payload["log"] for point in results]
-
