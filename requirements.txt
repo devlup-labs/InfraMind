@@ -12,4 +12,5 @@ groq
 python-dotenv
 langgraph
 langchain-core
+langchain-groq
 requests
