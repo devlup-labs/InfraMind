@@ -57,7 +57,7 @@ llm = ChatGroq(
     temperature=0,
 )
 
-# Bind tools
+
 llm_with_tools = llm.bind_tools(
     [
         horizontal_pod_scaling,
