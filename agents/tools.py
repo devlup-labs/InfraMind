@@ -4,7 +4,7 @@ import subprocess
 
 
 @tool
-def apply_hpa():
+def horizontal_pod_scaling():
     """
     Apply the Horizontal Pod Autoscaler for the application.
     """
@@ -13,4 +13,3 @@ def apply_hpa():
         check=True
     )
 
-    
