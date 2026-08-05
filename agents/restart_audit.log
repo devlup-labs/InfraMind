@@ -1,0 +1,4 @@
+2026-08-05 17:47:04,302 INFO Restarted pod 'mock-model-abc123' in namespace 'monitoring'.
+2026-08-05 17:47:46,619 INFO Restarted pod 'mock-model-abc123' in namespace 'monitoring'.
+2026-08-05 17:58:43,018 INFO Restarted pod 'mock-model-abc123' in namespace 'monitoring'.
+2026-08-05 17:59:05,807 INFO Restarted pod 'inframind-model-deployment-56dcd85774-mk76t' in namespace 'monitoring'.
