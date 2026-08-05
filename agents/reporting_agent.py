@@ -97,3 +97,4 @@ def reporting_agent(state: dict):
     report = generate_incident_report(anomaly, logs, root_cause)
     
     return {"incident_report": report}
+
