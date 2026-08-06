@@ -7,6 +7,7 @@ from log_collector import collect_logs
 from qdrant_manager import create_collection, store_logs
 from root_cause_agent import root_cause_agent
 from reporting_agent import reporting_agent
+from rollback_agent import rollback_node
 from optimizing_agent import (
     optimization_node,
     execute_restart_node,
@@ -33,6 +34,7 @@ class GraphState(TypedDict, total=False):
     max_retries: int
     final_status: str
     escalation: dict
+    rollback_result: dict
 
     incident_report: str
 
@@ -78,6 +80,7 @@ builder.add_node("optimization", optimization_node)
 builder.add_node("execute_restart", execute_restart_node)
 builder.add_node("wait_and_recheck", wait_and_recheck_node)
 builder.add_node("escalate", escalation_node)
+builder.add_node("rollback", rollback_node)
 builder.add_node("healthy_end", healthy_end_node)
 builder.add_node("reporting", reporting_agent)
 
@@ -102,13 +105,14 @@ builder.add_conditional_edges(
     stabilization_router,
     {
         "healthy_end": "healthy_end",
-        "optimization": "optimization",   # loop back
+        "optimization": "optimization",   
         "escalate": "escalate",
     },
 )
 
 builder.add_edge("healthy_end", "reporting")
-builder.add_edge("escalate", "reporting")
+builder.add_edge("escalate", "rollback")
+builder.add_edge("rollback", "reporting")
 builder.add_edge("reporting", END)
 
 app = builder.compile()
@@ -121,14 +125,14 @@ if __name__ == "__main__":
     print("\n--- ROOT CAUSE ANALYSIS ---")
     print(result.get("root_cause", "No root cause was generated."))
 
-    print("\n--- RESTART ATTEMPTS ---")
+    print("\n--- MITIGATION HISTORY ---")
     for entry in result.get("mitigation_history", []):
         print(f"  Attempt {entry['attempt']}: {entry['tool']} -> {entry['result']}")
 
     print(f"\n--- FINAL STATUS: {result.get('final_status', 'n/a')} ---")
-    if result.get("final_status") == "escalated_for_rollback":
-        print("--- ESCALATION PAYLOAD (for rollback owner) ---")
-        print(result.get("escalation"))
+    if result.get("rollback_result"):
+        print("--- ROLLBACK RESULT ---")
+        print(result.get("rollback_result"))
 
     print("\n--- INCIDENT REPORT ---")
     print(result.get("incident_report", "No incident report was generated."))

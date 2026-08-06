@@ -122,3 +122,47 @@ def restart_pod(pod_name: str) -> dict:
         "status": "success",
         "restarted_pod": pod_name,
     }
+
+@tool
+def rollback_deployment(deployment_name: str = "inframind-model-deployment") -> dict:
+    """
+    Rolls back a Kubernetes deployment to its previous stable revision.
+    Used when scaling and pod restarts fail to stabilize the workload.
+    """
+    if not deployment_name:
+        deployment_name = "inframind-model-deployment"
+
+    try:
+        result = subprocess.run(
+            [
+                "kubectl",
+                "rollout",
+                "undo",
+                f"deployment/{deployment_name}",
+                "-n",
+                NAMESPACE,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if result.returncode == 0:
+            logger.info(f"Successfully rolled back deployment '{deployment_name}' in namespace '{NAMESPACE}'.")
+            return {
+                "status": "success",
+                "output": result.stdout.strip(),
+            }
+
+        logger.error(f"Failed to rollback deployment '{deployment_name}': {result.stderr.strip()}")
+        return {
+            "status": "failed",
+            "error": result.stderr.strip(),
+        }
+
+    except Exception as e:
+        logger.error(f"Exception during rollback of deployment '{deployment_name}': {str(e)}")
+        return {
+            "status": "failed",
+            "error": str(e),
+        }
