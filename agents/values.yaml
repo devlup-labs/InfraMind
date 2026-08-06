@@ -1,0 +1,39 @@
+rules:
+  custom:
+    # HTTP 4xx rate, per pod
+    - seriesQuery: 'http_requests_total{namespace!="", pod!=""}'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+          pod: {resource: "pod"}
+      name:
+        matches: "^http_requests_total"
+        as: "http_4xx_rate"
+      metricsQuery: >-
+        sum(rate(<<.Series>>{<<.LabelMatchers>>,status=~"4.."}[2m])) by (pod)
+
+    # HTTP 5xx rate, per pod
+    - seriesQuery: 'http_requests_total{namespace!="", pod!=""}'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+          pod: {resource: "pod"}
+      name:
+        matches: "^http_requests_total"
+        as: "http_5xx_rate"
+      metricsQuery: >-
+        sum(rate(<<.Series>>{<<.LabelMatchers>>,status=~"5.."}[2m])) by (pod)
+
+    # P95 latency, per pod
+    - seriesQuery: 'http_request_duration_seconds_bucket{namespace!="", pod!=""}'
+      resources:
+        overrides:
+          namespace: {resource: "namespace"}
+          pod: {resource: "pod"}
+      name:
+        matches: "^http_request_duration_seconds_bucket"
+        as: "http_latency_p95_seconds"
+      metricsQuery: >-
+        histogram_quantile(0.95,
+          sum(rate(<<.Series>>{<<.LabelMatchers>>}[2m])) by (le, pod)
+        )
