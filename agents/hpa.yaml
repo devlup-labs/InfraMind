@@ -22,3 +22,24 @@ spec:
         target:
           type: Utilization
           averageUtilization: 50
+    - type: Pods
+      pods:
+        metric:
+          name: http_4xx_rate
+        target:
+          type: AverageValue
+          averageValue: "5"
+    - type: Pods
+      pods:
+        metric:
+          name: http_5xx_rate
+        target:
+          type: AverageValue
+          averageValue: "1"
+    - type: Pods
+      pods:
+        metric:
+          name: http_latency_p95_seconds
+        target:
+          type: AverageValue
+          averageValue: "0.5"
