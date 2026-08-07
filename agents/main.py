@@ -3,7 +3,7 @@ from typing import TypedDict
 from langgraph.graph import StateGraph, START, END
 
 from monitoring_agent import run_monitoring_agent
-from log_collector import collect_logs
+from log_collector import collect_logs, get_pod_name
 from qdrant_manager import create_collection, store_logs
 from root_cause_agent import root_cause_agent
 from reporting_agent import reporting_agent
@@ -52,7 +52,7 @@ def anomaly_router(state: GraphState):
 
 
 def collect_logs_node(state: GraphState):
-    return {"logs": collect_logs()}
+    return {"logs": collect_logs(), "affected_pod": get_pod_name()}
 
 
 def store_logs_node(state: GraphState):
@@ -121,6 +121,9 @@ app = builder.compile()
 if __name__ == "__main__":
     create_collection()
     result = app.invoke({})
+
+    print("\n--- AFFECTED POD ---")
+    print(result.get("affected_pod", "unknown"))
 
     print("\n--- ROOT CAUSE ANALYSIS ---")
     print(result.get("root_cause", "No root cause was generated."))

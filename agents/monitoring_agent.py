@@ -8,7 +8,7 @@ import requests
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9191")
+PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
 
 groq_client = Groq(api_key=GROQ_API_KEY)
 
