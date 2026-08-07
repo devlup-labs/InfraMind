@@ -1,3 +1,7 @@
+prometheus:
+  url: http://prometheus-service.monitoring.svc
+  port: 9090
+
 rules:
   custom:
     # HTTP 4xx rate, per pod

@@ -63,13 +63,16 @@ def _pod_is_excluded(pod) -> bool:
     return all(labels.get(key) == value for key, value in EXCLUDED_LABELS.items())
 
 
+HPA_MANIFEST_PATH = os.path.join(os.path.dirname(__file__), "hpa.yaml")
+
+
 @tool
 def horizontal_pod_scaling():
     """
     Apply the Horizontal Pod Autoscaler for the application.
     """
     subprocess.run(
-        ["kubectl", "apply", "-f", "k8s/hpa.yaml"],
+        ["kubectl", "apply", "-f", HPA_MANIFEST_PATH, "-n", NAMESPACE],
         check=True
     )
 
