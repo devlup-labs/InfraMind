@@ -17,6 +17,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -27,7 +28,9 @@ from Traffic_injector import generate_chaos_request  # noqa: E402
 
 NAMESPACE = "monitoring"
 DEPLOYMENT = "inframind-model-deployment"
+HPA = "hpa-autoscaler"
 APP_URL = "http://localhost:8000"
+_PORT_FORWARD_PROC = None
 
 
 def _kubectl(*args: str) -> str:
@@ -47,6 +50,44 @@ def _revision() -> str:
     return _kubectl(
         "get", "deployment", DEPLOYMENT, "-n", NAMESPACE,
         "-o", "jsonpath={.metadata.annotations.deployment\\.kubernetes\\.io/revision}",
+    )
+
+
+def _rollout_status(timeout: str = "180s") -> bool:
+    result = subprocess.run(
+        ["kubectl", "rollout", "status", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, f"--timeout={timeout}"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode == 0:
+        print(result.stdout.strip())
+        return True
+
+    detail = result.stderr.strip() or result.stdout.strip()
+    print(f"FAIL: rollout did not finish within {timeout}: {detail}")
+    print(_diagnostics())
+    return False
+
+
+def _hpa_limits() -> tuple[int, int] | None:
+    result = subprocess.run(
+        ["kubectl", "get", "hpa", HPA, "-n", NAMESPACE, "-o", "json"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        return None
+
+    spec = json.loads(result.stdout)["spec"]
+    return int(spec.get("minReplicas", 1)), int(spec["maxReplicas"])
+
+
+def _set_hpa_limits(min_replicas: int, max_replicas: int) -> None:
+    _kubectl(
+        "patch", "hpa", HPA, "-n", NAMESPACE, "--type=merge",
+        "-p", json.dumps({"spec": {"minReplicas": min_replicas, "maxReplicas": max_replicas}}),
     )
 
 
@@ -80,10 +121,26 @@ def verify_restart_pod() -> bool:
 
 def _app_reachable() -> bool:
     try:
-        urllib.request.urlopen(f"{APP_URL}/health", timeout=2)
-        return True
+        with urllib.request.urlopen(f"{APP_URL}/health", timeout=2) as response:
+            return response.status == 200
     except Exception:
         return False
+
+
+def _diagnostics() -> str:
+    checks = [
+        ("service", ("get", "svc", "inframind-model-service", "-n", NAMESPACE, "-o", "wide")),
+        ("endpoints", ("get", "endpoints", "inframind-model-service", "-n", NAMESPACE, "-o", "wide")),
+        ("pods", ("get", "pods", "-n", NAMESPACE, "-l", "app=mock-model", "-o", "wide")),
+    ]
+    output = []
+    for label, args in checks:
+        try:
+            output.append(f"--- kubectl {label} ---\n{_kubectl(*args)}")
+        except subprocess.CalledProcessError as exc:
+            detail = exc.stderr.strip() or exc.stdout.strip() or str(exc)
+            output.append(f"--- kubectl {label} failed ---\n{detail}")
+    return "\n".join(output)
 
 
 def _ensure_port_forward() -> None:
@@ -94,14 +151,17 @@ def _ensure_port_forward() -> None:
     if _app_reachable():
         return
 
+    global _PORT_FORWARD_PROC
     print("App not reachable on localhost:8000 -- (re)starting port-forward...")
     subprocess.run(
-        ["pkill", "-f", "port-forward.*8000:8000"],
+        ["pkill", "-f", "kubectl.*port-forward.*8000:8000"],
         capture_output=True,
     )
-    subprocess.Popen(
+    time.sleep(1)
+
+    _PORT_FORWARD_PROC = subprocess.Popen(
         ["kubectl", "port-forward", "-n", NAMESPACE, "svc/inframind-model-service", "8000:8000"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
     )
 
     deadline = time.time() + 20
@@ -109,9 +169,24 @@ def _ensure_port_forward() -> None:
         if _app_reachable():
             print("Port-forward ready.")
             return
+        if _PORT_FORWARD_PROC.poll() is not None:
+            stdout, stderr = _PORT_FORWARD_PROC.communicate()
+            detail = (stderr or stdout).strip() or f"kubectl exited with code {_PORT_FORWARD_PROC.returncode}"
+            raise RuntimeError(f"Could not establish port-forward: {detail}")
         time.sleep(1)
 
-    raise RuntimeError("Could not establish port-forward to inframind-model-service:8000")
+    _PORT_FORWARD_PROC.terminate()
+    try:
+        stdout, stderr = _PORT_FORWARD_PROC.communicate(timeout=5)
+    except subprocess.TimeoutExpired:
+        _PORT_FORWARD_PROC.kill()
+        stdout, stderr = _PORT_FORWARD_PROC.communicate()
+
+    detail = (stderr or stdout).strip()
+    raise RuntimeError(
+        "Could not establish port-forward to inframind-model-service:8000\n"
+        f"{detail}\n{_diagnostics()}"
+    )
 
 
 def verify_hpa_scaling(duration_seconds: int = 120, workers: int = 15) -> bool:
@@ -126,7 +201,8 @@ def verify_hpa_scaling(duration_seconds: int = 120, workers: int = 15) -> bool:
     # leftover replica count from earlier runs.
     print("Resetting to a known baseline of 1 replica...")
     _kubectl("scale", "deployment", DEPLOYMENT, "-n", NAMESPACE, "--replicas=1")
-    _kubectl("rollout", "status", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, "--timeout=90s")
+    if not _rollout_status():
+        return False
     _ensure_port_forward()
 
     baseline = int(_kubectl(
@@ -161,37 +237,56 @@ def verify_hpa_scaling(duration_seconds: int = 120, workers: int = 15) -> bool:
 
 def verify_rollback() -> bool:
     print("=== rollback_deployment live test ===")
-    before_rev = _revision()
-    print(f"Revision before forced change: {before_rev}")
+    original_hpa_limits = _hpa_limits()
+    if original_hpa_limits:
+        print(f"Temporarily pinning HPA {HPA} to 1 replica for deterministic rollout timing...")
+        _set_hpa_limits(1, 1)
 
-    # Force a genuine new revision (pod template change) so there's
-    # something real for the tool to roll back to.
-    _kubectl(
-        "patch", "deployment", DEPLOYMENT, "-n", NAMESPACE, "--type=json",
-        "-p", f'[{{"op":"add","path":"/spec/template/metadata/annotations/live-test-bump",'
-              f'"value":"{time.time()}"}}]',
-    )
-    _kubectl("rollout", "status", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, "--timeout=90s")
+    try:
+        print("Resetting deployment to 1 replica before rollback test...")
+        _kubectl("scale", "deployment", DEPLOYMENT, "-n", NAMESPACE, "--replicas=1")
+        if not _rollout_status():
+            return False
 
-    mid_rev = _revision()
-    print(f"Revision after forced change: {mid_rev}")
+        before_rev = _revision()
+        print(f"Revision before forced change: {before_rev}")
 
-    result = rollback_deployment.invoke({"deployment_name": DEPLOYMENT})
-    print(f"Tool result: {result}")
-    if result.get("status") != "success":
-        print("FAIL: rollback_deployment did not report success")
+        # Force a genuine new revision (pod template change) so there's
+        # something real for the tool to roll back to.
+        _kubectl(
+            "patch", "deployment", DEPLOYMENT, "-n", NAMESPACE, "--type=json",
+            "-p", f'[{{"op":"add","path":"/spec/template/metadata/annotations/live-test-bump",'
+                  f'"value":"{time.time()}"}}]',
+        )
+        if not _rollout_status():
+            return False
+
+        mid_rev = _revision()
+        print(f"Revision after forced change: {mid_rev}")
+
+        result = rollback_deployment.invoke({"deployment_name": DEPLOYMENT})
+        print(f"Tool result: {result}")
+        if result.get("status") != "success":
+            print("FAIL: rollback_deployment did not report success")
+            return False
+
+        if not _rollout_status():
+            return False
+
+        after_rev = _revision()
+        print(f"Revision after rollback: {after_rev}")
+
+        if after_rev != mid_rev:
+            print(f"PASS: rollback moved revision {mid_rev} -> {after_rev}")
+            return True
+
+        print("FAIL: revision did not change after rollback")
         return False
-
-    _kubectl("rollout", "status", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, "--timeout=90s")
-    after_rev = _revision()
-    print(f"Revision after rollback: {after_rev}")
-
-    if after_rev != mid_rev:
-        print(f"PASS: rollback moved revision {mid_rev} -> {after_rev}")
-        return True
-
-    print("FAIL: revision did not change after rollback")
-    return False
+    finally:
+        if original_hpa_limits:
+            min_replicas, max_replicas = original_hpa_limits
+            print(f"Restoring HPA {HPA} limits to {min_replicas}..{max_replicas}.")
+            _set_hpa_limits(min_replicas, max_replicas)
 
 
 if __name__ == "__main__":

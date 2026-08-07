@@ -190,7 +190,7 @@ python3 main.py
 Check the metrics are actually moving before running `main.py`:
 ```bash
 curl -s --get 'http://localhost:9090/api/v1/query' \
-  --data-urlencode 'query=rate(process_cpu_seconds_total{job="fastapi_app"}[2m])'
+  --data-urlencode 'query=sum(rate(http_requests_total{job="fastapi_app",status=~"4xx|5xx"}[2m]))'
 ```
 
 `main.py` prints the full trace: the raw metric snapshot, the anomaly verdict, the affected pod, root-cause analysis, every mitigation attempt and its result, the final status, and the generated incident report.

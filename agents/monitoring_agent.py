@@ -26,18 +26,19 @@ PROMETHEUS_QUERIES = {
 
     # HTTP 4xx error rate
     "http_4xx_rate": (
-        'sum(rate(http_requests_total{job="fastapi_app",handler="/predict",status="4xx"}[2m]))'
+        'sum(rate(http_requests_total{job="fastapi_app",status="4xx"}[2m])) or vector(0)'
     ),
 
     # HTTP 5xx error rate
     "http_5xx_rate": (
-        'sum(rate(http_requests_total{job="fastapi_app",handler="/predict",status="5xx"}[2m]))'
+        'sum(rate(http_requests_total{job="fastapi_app",status="5xx"}[2m])) or vector(0)'
     ),
 
     # P95 latency
     "http_latency_p95_seconds": (
         'histogram_quantile(0.95, '
-        'sum(rate(http_request_duration_seconds_bucket{job="fastapi_app",handler="/predict"}[2m])) by (le))'
+        'sum(rate(http_request_duration_seconds_bucket{job="fastapi_app",handler="/predict"}[2m])) by (le)) '
+        'or vector(0)'
     )
 }
 
