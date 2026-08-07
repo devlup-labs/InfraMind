@@ -1,6 +1,7 @@
 
 venv/
 env/
+.venv*/
 .env
 
 __pycache__/
@@ -9,4 +10,6 @@ __pycache__/
 
 .vscode/
 .idea/
-EOT
+.claude/
+
+*.log

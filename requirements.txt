@@ -1,3 +1,7 @@
+# Requires Python 3.10+ (agents/optimizing_agent.py uses PEP 604 `str | None` syntax).
+# System python3 on macOS is often 3.9 -- use a 3.10+ interpreter for the venv, e.g.:
+#   brew install python@3.12 && /opt/homebrew/bin/python3.12 -m venv .venv-agents
+
 fastapi>=0.110.0
 uvicorn>=0.28.0
 transformers>=4.38.0
@@ -5,7 +9,6 @@ torch>=2.2.0
 prometheus-fastapi-instrumentator>=7.0.0
 pydantic>=2.0.0
 python-json-logger>=2.0.7
-prometheus-api-client
 kubernetes
 qdrant-client
 sentence-transformers

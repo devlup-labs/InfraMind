@@ -1,2 +1,11 @@
 2026-08-06 15:23:28,004 INFO Restarted pod 'mock-model-abc123' in namespace 'monitoring'.
 2026-08-06 15:23:36,710 INFO Restarted pod 'mock-model-abc123' in namespace 'monitoring'.
+2026-08-07 00:12:57,242 INFO Restarted pod 'mock-model-abc123' in namespace 'monitoring'.
+2026-08-07 00:13:38,284 INFO Restarted pod 'mock-model-abc123' in namespace 'monitoring'.
+2026-08-07 00:52:05,185 INFO Restarted pod 'inframind-model-deployment-797d585778-knzbw' in namespace 'monitoring'.
+2026-08-07 00:52:13,357 INFO Successfully rolled back deployment 'inframind-model-deployment' in namespace 'monitoring'.
+2026-08-07 00:57:23,450 INFO Restarted pod 'inframind-model-deployment-797d585778-9lg6f' in namespace 'monitoring'.
+2026-08-07 00:59:27,812 INFO Successfully rolled back deployment 'inframind-model-deployment' in namespace 'monitoring'.
+2026-08-07 01:01:54,043 INFO Restarted pod 'inframind-model-deployment-797d585778-c6wnh' in namespace 'monitoring'.
+2026-08-07 01:02:11,626 INFO Successfully rolled back deployment 'inframind-model-deployment' in namespace 'monitoring'.
+2026-08-07 13:46:33,704 INFO Restarted pod 'inframind-model-deployment-7f56bfb8c-48p95' in namespace 'monitoring'.
