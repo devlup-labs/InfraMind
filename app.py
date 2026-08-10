@@ -106,35 +106,45 @@ def get_logs():
     return memory_store["logs"]
 
 
-
-
 def execute_agentic_pipeline():
     """Runs the LangGraph workflow without blocking the HTTP response."""
     global memory_store
     
-    # Update UI state to show monitoring has started
     memory_store["pipeline_status"]["agents"]["monitoring"]["status"] = "running"
+    memory_store["pipeline_status"]["agents"]["root_cause"]["status"] = "standby"
+    memory_store["pipeline_status"]["agents"]["optimization"]["status"] = "standby"
+    memory_store["pipeline_status"]["agents"]["reporting"]["status"] = "standby"
     
     start_time = time.time()
     
     try:
-
         result = langgraph_app.invoke({})
         
-  
-        is_anomaly = result.get("analysis", {}).get("anomaly_detected", False)
+        # Safely check multiple possible keys where LangGraph might store the output
+        analysis = (
+            result.get("analysis") or 
+            result.get("monitoring") or 
+            result.get("monitoring_result") or 
+            result.get("agent_output") or 
+            {}
+        )
         
-
+        # If the result itself contains anomaly keys directly
+        is_anomaly = analysis.get("anomaly_detected") or result.get("anomaly_detected", False)
+        suspect_metric = analysis.get("suspect_metric") or result.get("suspect_metric", "none")
+        
+        memory_store["pipeline_status"]["anomaly_detected"] = is_anomaly
+        memory_store["pipeline_status"]["suspect_metric"] = suspect_metric
+        
         memory_store["latest_incident"] = {
             "status": result.get("final_status", "resolved" if is_anomaly else "No anomaly"),
-            "report": result.get("incident_report", "No report generated."),
-            "summary": result.get("root_cause", "System functioning normally.")
+            "report": result.get("incident_report", analysis.get("reasoning", "No report generated.")),
+            "summary": result.get("root_cause", suspect_metric if is_anomaly else "System functioning normally.")
         }
         
-
         if is_anomaly:
             memory_store["past_incidents"].append({
-                "anomaly": result.get("analysis", {}).get("suspect_metric", "unknown"),
+                "anomaly": suspect_metric,
                 "pod": result.get("affected_pod", "unknown"),
                 "triggered_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 "root_cause": result.get("root_cause", "Unknown"),
@@ -145,9 +155,10 @@ def execute_agentic_pipeline():
     except Exception as e:
         logger.error(f"Pipeline execution failed: {str(e)}")
         memory_store["latest_incident"]["report"] = f"Pipeline failed: {str(e)}"
+        memory_store["pipeline_status"]["anomaly_detected"] = False
+        memory_store["pipeline_status"]["suspect_metric"] = "none"
     
     finally:
-  
         memory_store["pipeline_status"]["elapsed_seconds"] = round(time.time() - start_time)
         for agent in memory_store["pipeline_status"]["agents"]:
             memory_store["pipeline_status"]["agents"][agent]["status"] = "completed"
@@ -159,7 +170,6 @@ def trigger_pipeline(background_tasks: BackgroundTasks):
     return {"message": "Pipeline initiated"}
 
 
-
 class TrafficRequest(BaseModel):
     mode: str
 
@@ -167,7 +177,6 @@ class TrafficRequest(BaseModel):
 def inject_traffic(request: TrafficRequest):
     """Triggers traffic generation scripts to simulate load or anomalies."""
     try:
-
         subprocess.Popen(["python", "Traffic_injector.py", "--mode", request.mode])
         return {"status": "success", "message": f"Started {request.mode} traffic injection"}
     except Exception as e:

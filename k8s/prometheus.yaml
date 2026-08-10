@@ -1,112 +1,112 @@
-﻿apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: prometheus-config
-data:
-  prometheus.yml: |
-    global:
-      scrape_interval: 2s
+﻿  apiVersion: v1
+  kind: ConfigMap
+  metadata:
+    name: prometheus-config
+  data:
+    prometheus.yml: |
+      global:
+        scrape_interval: 2s
 
-    scrape_configs:
-      # Kubernetes-aware discovery so scraped series carry namespace/pod
-      # labels -- required by the custom-metrics adapter's seriesQuery
-      # (namespace!="", pod!="") in agents/values.yaml.
-      - job_name: 'fastapi_app'
-        kubernetes_sd_configs:
-          - role: pod
-            namespaces:
-              names: ['monitoring']
-        relabel_configs:
-          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
-            action: keep
-            regex: true
-          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
-            action: replace
-            target_label: __metrics_path__
-            regex: (.+)
-          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
-            action: replace
-            regex: ([^:]+)(?::\d+)?;(\d+)
-            replacement: $1:$2
-            target_label: __address__
-          - source_labels: [__meta_kubernetes_namespace]
-            action: replace
-            target_label: namespace
-          - source_labels: [__meta_kubernetes_pod_name]
-            action: replace
-            target_label: pod
+      scrape_configs:
+        # Kubernetes-aware discovery so scraped series carry namespace/pod
+        # labels -- required by the custom-metrics adapter's seriesQuery
+        # (namespace!="", pod!="") in agents/values.yaml.
+        - job_name: 'fastapi_app'
+          kubernetes_sd_configs:
+            - role: pod
+              namespaces:
+                names: ['monitoring']
+          relabel_configs:
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+              action: keep
+              regex: true
+            - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+              action: replace
+              target_label: __metrics_path__
+              regex: (.+)
+            - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+              action: replace
+              regex: ([^:]+)(?::\d+)?;(\d+)
+              replacement: $1:$2
+              target_label: __address__
+            - source_labels: [__meta_kubernetes_namespace]
+              action: replace
+              target_label: namespace
+            - source_labels: [__meta_kubernetes_pod_name]
+              action: replace
+              target_label: pod
 
-      - job_name: 'prometheus'
-        static_configs:
-          - targets: ['localhost:9090']
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: prometheus
-  namespace: monitoring
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: prometheus-role
-  namespace: monitoring
-rules:
-  - apiGroups: [""]
-    resources: ["pods"]
-    verbs: ["get", "list", "watch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: prometheus-binding
-  namespace: monitoring
-subjects:
-  - kind: ServiceAccount
+        - job_name: 'prometheus'
+          static_configs:
+            - targets: ['localhost:9090']
+  ---
+  apiVersion: v1
+  kind: ServiceAccount
+  metadata:
     name: prometheus
     namespace: monitoring
-roleRef:
+  ---
+  apiVersion: rbac.authorization.k8s.io/v1
   kind: Role
-  name: prometheus-role
-  apiGroup: rbac.authorization.k8s.io
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: prometheus-deployment
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: prometheus
-  template:
-    metadata:
-      labels:
+  metadata:
+    name: prometheus-role
+    namespace: monitoring
+  rules:
+    - apiGroups: [""]
+      resources: ["pods"]
+      verbs: ["get", "list", "watch"]
+  ---
+  apiVersion: rbac.authorization.k8s.io/v1
+  kind: RoleBinding
+  metadata:
+    name: prometheus-binding
+    namespace: monitoring
+  subjects:
+    - kind: ServiceAccount
+      name: prometheus
+      namespace: monitoring
+  roleRef:
+    kind: Role
+    name: prometheus-role
+    apiGroup: rbac.authorization.k8s.io
+  ---
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: prometheus-deployment
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
         app: prometheus
-    spec:
-      serviceAccountName: prometheus
-      containers:
-        - name: prometheus
-          image: prom/prometheus:latest
-          args:
-            - "--config.file=/etc/prometheus/prometheus.yml"
-          ports:
-            - containerPort: 9090
-          volumeMounts:
-            - name: config-volume
-              mountPath: /etc/prometheus
-      volumes:
-        - name: config-volume
-          configMap:
-            name: prometheus-config
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: prometheus-service
-spec:
-  selector:
-    app: prometheus
-  ports:
-    - port: 9090
-      targetPort: 9090
+    template:
+      metadata:
+        labels:
+          app: prometheus
+      spec:
+        serviceAccountName: prometheus
+        containers:
+          - name: prometheus
+            image: prom/prometheus:latest
+            args:
+              - "--config.file=/etc/prometheus/prometheus.yml"
+            ports:
+              - containerPort: 9090
+            volumeMounts:
+              - name: config-volume
+                mountPath: /etc/prometheus
+        volumes:
+          - name: config-volume
+            configMap:
+              name: prometheus-config
+  ---
+  apiVersion: v1
+  kind: Service
+  metadata:
+    name: prometheus-service
+  spec:
+    selector:
+      app: prometheus
+    ports:
+      - port: 9090
+        targetPort: 9090

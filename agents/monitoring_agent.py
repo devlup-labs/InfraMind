@@ -8,40 +8,27 @@ import requests
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
+PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://prometheus:9090")
 
 groq_client = Groq(api_key=GROQ_API_KEY)
 
-# 1. Comprehensive Telemetry Queries (Clean PromQL Syntax)
 PROMETHEUS_QUERIES = {
-    # CPU usage of FastAPI process
-    "cpu_usage_rate": (
-        'rate(process_cpu_seconds_total{job="fastapi_app"}[2m])'
-    ),
-
-    # Resident memory usage
-    "memory_usage_bytes": (
-        'process_resident_memory_bytes{job="fastapi_app"}'
-    ),
-
-    # HTTP 4xx error rate
-    "http_4xx_rate": (
-        'sum(rate(http_requests_total{job="fastapi_app",status="4xx"}[2m])) or vector(0)'
-    ),
-
-    # HTTP 5xx error rate
-    "http_5xx_rate": (
-        'sum(rate(http_requests_total{job="fastapi_app",status="5xx"}[2m])) or vector(0)'
-    ),
-
-    # P95 latency
-    "http_latency_p95_seconds": (
-        'histogram_quantile(0.95, '
-        'sum(rate(http_request_duration_seconds_bucket{job="fastapi_app",handler="/predict"}[2m])) by (le)) '
-        'or vector(0)'
-    )
-}
-
+        "cpu_usage_rate": (
+            'rate(process_cpu_seconds_total{job="fastapi_app"}[2m])'
+        ),
+        "memory_usage_bytes": (
+            'process_resident_memory_bytes{job="fastapi_app"}'
+        ),
+        "http_4xx_rate": (
+            'sum(rate(http_requests_total{job="fastapi_app",status=~"4.*"}[2m])) or vector(0)'
+        ),
+        "http_5xx_rate": (
+            'sum(rate(http_requests_total{job="fastapi_app",status=~"5.*"}[2m])) or vector(0)'
+        ),
+        "http_latency_p95_seconds": (
+            'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="fastapi_app",handler="/predict"}[2m])) by (le)) or vector(0)'
+        )
+    }
 # 2. System Prompt & Few-Shot Instruction Set
 SYSTEM_PROMPT = """
 You are an expert SRE Monitoring Agent running inside a Kubernetes/Infrastructure environment. 

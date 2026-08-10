@@ -17,15 +17,36 @@ spec:
         prometheus.io/port: "8000"
     spec:
       containers:
-      - name: fastapimodel
-        image: inframind-model:latest
-        imagePullPolicy: Never
-        ports:
-        - containerPort: 8000
-        resources:
-          requests:
-            cpu: "500m"
-            memory: "700Mi"
-          limits:
-            cpu: "1000m"
-            memory: "1Gi"
+        - name: fastapimodel
+          image: inframind-model:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          env:
+            - name: PROMETHEUS_URL
+              value: "http://prometheus-service.monitoring.svc.cluster.local:9090"
+            - name: QDRANT_URL
+              value: "http://qdrant-service.monitoring.svc.cluster.local:6333"
+            - name: QDRANT_COLLECTION
+              value: "inframind_logs"
+            - name: GROQ_API_KEY
+              value: "GROQ_API_KEY"
+            - name: INFRAMIND_NAMESPACE
+              value: "monitoring"
+            - name: INFRAMIND_DEPLOYMENT
+              value: "inframind-model-deployment"
+            - name: RESTART_COOLDOWN_SECONDS
+              value: "60"
+            - name: RESTART_MAX_PER_HOUR
+              value: "6"
+            - name: RESTART_MAX_RETRIES
+              value: "2"
+            - name: RESTART_WAIT_SECONDS
+              value: "30"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "700Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"

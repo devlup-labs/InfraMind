@@ -9,8 +9,8 @@ from .embedding import generate_embeddings
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
-QDRANT_URL = os.getenv("QDRANT_URL")
-COLLECTION_NAME = os.getenv("QDRANT_COLLECTION")
+QDRANT_URL = os.getenv("QDRANT_URL", "http://qdrant:6333")
+COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "inframind_memory")
 
 client = QdrantClient(url=QDRANT_URL)
 
