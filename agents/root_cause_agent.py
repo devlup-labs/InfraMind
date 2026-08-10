@@ -1,6 +1,6 @@
 from groq import Groq
 import os
-from qdrant_manager import search_logs
+from .qdrant_manager import search_logs
 
 
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))

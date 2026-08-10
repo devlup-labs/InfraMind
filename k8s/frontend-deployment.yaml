@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inframind-frontend-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inframind-frontend
+  template:
+    metadata:
+      labels:
+        app: inframind-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: inframind-frontend:latest 
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inframind-frontend-service
+spec:
+  type: NodePort
+  selector:
+    app: inframind-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080

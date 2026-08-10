@@ -1,6 +1,6 @@
 import logging
 import os
-from tools import rollback_deployment
+from .tools import rollback_deployment
 
 logger = logging.getLogger("inframind-rollback-agent")
 

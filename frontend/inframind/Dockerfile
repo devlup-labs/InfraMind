@@ -1,20 +1,22 @@
+FROM node:20-alpine
 
-FROM node:20-alpine AS build
+# Install Nginx and create run directories
+RUN apk add --no-cache nginx && mkdir -p /run/nginx
 
 WORKDIR /app
 
+# Install Node dependencies
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
+# Copy source and explicitly force Nitro to build a standalone Node server
 COPY . .
-RUN npm run build
+RUN NITRO_PRESET=node-server npm run build
 
-FROM nginx:alpine
-
-COPY --from=build /app/dist /usr/share/nginx/html
-
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Copy custom Nginx config to Alpine's specific http.d directory
+COPY nginx.conf /etc/nginx/http.d/default.conf
 
 EXPOSE 80
 
-CMD ["nginx", "-g", "daemon off;"]
+# Start the generated Node server in the background and Nginx in the foreground
+CMD ["sh", "-c", "PORT=3000 HOST=127.0.0.1 node .output/server/index.mjs & nginx -g 'daemon off;'"]

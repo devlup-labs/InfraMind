@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct , Filter
 
-from embedding import generate_embeddings
+from .embedding import generate_embeddings
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 

@@ -7,8 +7,8 @@ import time
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_groq import ChatGroq
 
-from monitoring_agent import fetch_comprehensive_metrics
-from tools import horizontal_pod_scaling, restart_pod
+from .monitoring_agent import fetch_comprehensive_metrics
+from .tools import horizontal_pod_scaling, restart_pod
 
 load_dotenv()
 
