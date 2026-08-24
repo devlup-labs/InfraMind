@@ -22,6 +22,12 @@ spec:
         imagePullPolicy: Never
         ports:
         - containerPort: 8000
+        env:
+        - name: INFERENCE_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: inframind-app-config
+              key: INFERENCE_TIMEOUT
         resources:
           requests:
             cpu: "500m"

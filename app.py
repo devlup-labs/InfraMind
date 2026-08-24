@@ -1,4 +1,7 @@
 import logging
+import os
+import time
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from transformers import pipeline
@@ -7,9 +10,7 @@ from pythonjsonlogger import jsonlogger
 
 logger = logging.getLogger("inframind-model")
 logHandler = logging.StreamHandler()
-formatter = jsonlogger.JsonFormatter(
-    "%(asctime)s %(levelname)s %(name)s %(message)s"
-)
+formatter = jsonlogger.JsonFormatter("%(asctime)s %(levelname)s %(name)s %(message)s")
 logHandler.setFormatter(formatter)
 logger.addHandler(logHandler)
 logger.setLevel(logging.INFO)
@@ -25,9 +26,7 @@ except Exception as e:
     logger.error("Failed to load model", extra={"error": str(e)})
     raise RuntimeError("Model initialization failed")
 
-
 app = FastAPI(title="InfraMind Mock ML API")
-
 Instrumentator().instrument(app).expose(app)
 
 class InferenceRequest(BaseModel):
@@ -37,26 +36,51 @@ class SentimentResponse(BaseModel):
     label: str
     score: float
 
-
 @app.post("/predict", response_model=SentimentResponse)
 async def predict(request: InferenceRequest):
-    # Log incoming request (logging length instead of full text to avoid log bloat)
-    logger.info("Received inference request", extra={"text_length": len(request.text)})
-    
-    try:
+    logger.info(
+        "Received inference request",
+        extra={"text_length": len(request.text)}
+    )
 
+    start = time.time()
+
+    try:
         result = classifier(request.text)[0]
-        
-        logger.info("Prediction successful", extra={"predicted_label": result['label']})
-        
-        return SentimentResponse(
-            label=result['label'],
-            score=result['score']
+        elapsed = time.time() - start
+
+        if elapsed > inference_timeout:
+            logger.warning(
+                "Inference request exceeded configured timeout",
+                extra={
+                    "elapsed_seconds": round(elapsed, 2),
+                    "configured_timeout_seconds": inference_timeout,
+                }
+            )
+
+        logger.info(
+            "Prediction successful",
+            extra={
+                "predicted_label": result["label"],
+                "elapsed_seconds": round(elapsed, 2),
+                "configured_timeout_seconds": inference_timeout,
+            }
         )
-        
+
+        return SentimentResponse(
+            label=result["label"],
+            score=result["score"]
+        )
+
     except Exception as e:
-        logger.error("Error during prediction", extra={"error": str(e)})
-        raise HTTPException(status_code=500, detail="Internal server error during inference")
+        logger.error(
+            "Error during prediction",
+            extra={"error": str(e)}
+        )
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error during inference"
+        )
 
 @app.get("/health")
 def health_check():
