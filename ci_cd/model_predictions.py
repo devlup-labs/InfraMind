@@ -1,43 +1,63 @@
 import os
-from typing import Dict, Any
+from typing import Dict, Optional, Any
 
 import pandas as pd
 import mlflow
 import mlflow.pyfunc
 from dotenv import load_dotenv
 
-# Load environment variables from .env
 load_dotenv()
-
-MODEL_NAME = os.getenv("MODEL_NAME")
-MODEL_URL = os.getenv("MODEL_URL")
-
-if not MODEL_NAME:
-    raise ValueError("MODEL_NAME is not set in the .env file.")
-
-if not MODEL_URL:
-    raise ValueError("MODEL_URL is not set in the .env file.")
 
 
 def load_production_model() -> Any:
-    """Load the production model from the MLflow Model Registry."""
+    """
+    Load the production ML model from the MLflow Model Registry.
+    """
 
-    mlflow.set_tracking_uri(MODEL_URL)
+    model_name = os.getenv("MODEL_NAME")
+    model_url = os.getenv("MODEL_URL")
 
+    if model_name is None:
+        raise ValueError("MODEL_NAME is not set in the .env file.")
+
+    if model_url is None:
+        raise ValueError("MODEL_URL is not set in the .env file.")
+
+    mlflow.set_tracking_uri(model_url)
+
+   
     model = mlflow.pyfunc.load_model(
-        model_uri=f"models:/{MODEL_NAME}/Production"
+        model_uri=f"models:/{model_name}/Production"
     )
 
     return model
 
 
-def get_model_predictions(features: Dict[str, float]) -> float:
-    """Generate a prediction from Prometheus metrics."""
+def get_model_predictions(
+    input_features: Dict[str, Optional[float]]
+) -> float:
+    """
+    Generate an anomaly/risk prediction using Prometheus metrics.
 
-    input_df = pd.DataFrame([features])
+    Args:
+        input_features: Dictionary containing Prometheus metrics.
+
+    Returns:
+        Predicted anomaly score as a float.
+    """
+
+    clean_features = {
+        key: value
+        for key, value in input_features.items()
+        if value is not None
+    }
+
+    input_df = pd.DataFrame([clean_features])
 
     model = load_production_model()
+
     prediction = model.predict(input_df)
 
-    return float(prediction[0])
+    return float(prediction.item())
+
 

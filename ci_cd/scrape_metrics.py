@@ -55,7 +55,7 @@ def fetch_features() -> Dict[str, Optional[float]]:
         Dictionary containing feature names and their numeric values.
         Missing metrics are returned as None.
     """
-    features = {}
+    features :Dict[str , Optional[float]] = {}
 
     for feature_name, promql in FEATURE_QUERIES.items():
         features[feature_name] = _query_prometheus(promql)
