@@ -1,0 +1,41 @@
+name: monitoring_cycle_15
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   
+  workflow_dispatch: {}       
+
+concurrency:
+  group: monitoring_group
+  cancel-in-progress: true
+
+jobs:
+  job-1:
+    name: fetch_outputs
+    runs-on: ubuntu-latest
+    env:
+      MODEL_NAME: ${{ vars.MODEL_NAME }}
+      MODEL_URL: ${{ vars.MODEL_URL }}
+      PROMETHEUS_URL: ${{ vars.PROMETHEUS_URL }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: install dependencies
+        run: pip install -r requirements.txt
+
+      - name: scrape_prometheus_metrics
+        working-directory: scripts
+        run: scrape_metrics.py
+
+       -name: mode_predicts_metrics
+        working-directory: scripts
+        run: python model_predictions.py
+
+      - name: find_error_step
+        working-directory: scripts
+        run: python error_calculation.py
