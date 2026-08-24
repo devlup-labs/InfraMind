@@ -19,3 +19,4 @@ langchain-core
 langchain-groq
 requests
 sqlalchemy
+mlflow
