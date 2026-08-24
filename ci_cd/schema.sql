@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS errors{
+    error_id PRIMARY KEY;
+    time TIMESTAMPTZ NOT NULL DEFAULT now() ;
+    error INTEGER NOT NULL;
+    solved BOOLEAN NOT NULL DEFAULT FALSE;
+}
