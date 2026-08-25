@@ -1,10 +1,9 @@
 import os
-import requests
 from typing import Dict, Optional
 
+import requests
 
 PROMETHEUS_URL = os.getenv("PROMETHEUS_URL", "http://localhost:9090")
-
 
 FEATURE_QUERIES = {
     "request_rate": "sum(rate(http_requests_total[5m]))",
@@ -20,10 +19,8 @@ FEATURE_QUERIES = {
 
 
 def _query_prometheus(query: str) -> Optional[float]:
-    """
-    Execute a single PromQL query and return the metric value.
-    Returns None if the query fails or no data is available.
-    """
+    """Execute a single PromQL query and return the metric value, or None
+    if the query fails or returns no data."""
     try:
         response = requests.get(
             f"{PROMETHEUS_URL}/api/v1/query",
@@ -33,7 +30,6 @@ def _query_prometheus(query: str) -> Optional[float]:
         response.raise_for_status()
 
         data = response.json().get("data", {}).get("result", [])
-
         if not data:
             return None
 
@@ -48,18 +44,5 @@ def _query_prometheus(query: str) -> Optional[float]:
 
 
 def fetch_features() -> Dict[str, Optional[float]]:
-    """
-    Fetch all monitoring features from Prometheus.
-
-    Returns:
-        Dictionary containing feature names and their numeric values.
-        Missing metrics are returned as None.
-    """
-    features :Dict[str , Optional[float]] = {}
-
-    for feature_name, promql in FEATURE_QUERIES.items():
-        features[feature_name] = _query_prometheus(promql)
-
-    return features
-
-
+    """Fetch all monitoring features from Prometheus. Missing metrics are None."""
+    return {name: _query_prometheus(query) for name, query in FEATURE_QUERIES.items()}

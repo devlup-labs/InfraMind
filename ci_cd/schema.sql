@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS errors{
-    metric_name VARCHAR(100) NOT NULL ;
     error_id PRIMARY KEY;
+    metric_name VARCHAR(100) NOT NULL ;
     time TIMESTAMPTZ NOT NULL DEFAULT now() ;
-    error INTEGER NOT NULL;
+    error_val INTEGER NOT NULL;
     solved BOOLEAN NOT NULL DEFAULT FALSE;
 
 }

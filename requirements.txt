@@ -20,3 +20,4 @@ langchain-groq
 requests
 sqlalchemy
 mlflow
+river
