@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Cache the loaded model so MLflow isn't queried on every prediction.
+
 _model = None
 
 
