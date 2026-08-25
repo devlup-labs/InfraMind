@@ -41,16 +41,3 @@ def calculate_error(
     return error_dict
 
 
-def main():
-    ensure_schema()
-
-    actual_metrics = fetch_features()
-    predicted_metrics = {
-        name: get_model_predictions(actual_metrics) for name in actual_metrics
-    }
-
-    calculate_error(actual_metrics, predicted_metrics)
-
-
-if __name__ == "__main__":
-    main()
