@@ -1,52 +1,64 @@
 import os
-from typing import Any, Dict, Optional , List
+from typing import Dict, Any
 
+import pandas as pd
 import mlflow
 import mlflow.pyfunc
-import pandas as pd
 from dotenv import load_dotenv
 
 load_dotenv()
 
+# Cache the loaded model so MLflow isn't queried on every prediction.
+_model = None
+
 
 def load_production_model() -> Any:
-    """Load the production ML model from the MLflow Model Registry."""
+    """
+    Load the production ML model from the MLflow Model Registry.
+    """
+    global _model
+
+    if _model is not None:
+        return _model
+
     model_name = os.getenv("MODEL_NAME")
     model_url = os.getenv("MODEL_URL")
 
     if model_name is None:
         raise ValueError("MODEL_NAME is not set in the .env file.")
+
     if model_url is None:
         raise ValueError("MODEL_URL is not set in the .env file.")
 
     mlflow.set_tracking_uri(model_url)
-    return mlflow.pyfunc.load_model(model_uri=f"models:/{model_name}/Production")
+
+    _model = mlflow.pyfunc.load_model(
+        model_uri=f"models:/{model_name}/Production"
+    )
+
+    return _model
+
 
 def get_model_predictions(
-    input_features: Dict[str, Optional[float]]
-) -> List[float]:
+    input_features: Dict[str, float]
+) -> Dict[str, float]:
     """
-    Generate one prediction for each metric.
+    Predict the next value for each metric.
+
+    Args:
+        input_features: Dictionary mapping metric names to observed values.
 
     Returns:
-        List of predicted metric values.
+        Dictionary mapping metric names to predicted values.
     """
-
-    prediction_list = []
-
     model = load_production_model()
+    prediction_dict: Dict[str, float] = {}
 
     for metric_name, metric_value in input_features.items():
-
-        if metric_value is None:
-            continue
-
-        input_df = pd.DataFrame([
-            {metric_name: metric_value}
-        ])
+        input_df = pd.DataFrame([{metric_name: metric_value}])
 
         prediction = model.predict(input_df)
 
-        prediction_list.append(float(prediction.item()))
+        prediction_dict[metric_name] = float(prediction.item())
 
-    return prediction_list
+    return prediction_dict
