@@ -14,31 +14,11 @@ groq_client = Groq(api_key=GROQ_API_KEY)
 
 # 1. Comprehensive Telemetry Queries (Clean PromQL Syntax)
 PROMETHEUS_QUERIES = {
-    # CPU usage of FastAPI process
-    "cpu_usage_rate": (
-        'rate(process_cpu_seconds_total{job="fastapi_app"}[2m])'
-    ),
-
-    # Resident memory usage
-    "memory_usage_bytes": (
-        'process_resident_memory_bytes{job="fastapi_app"}'
-    ),
-
-    # HTTP 4xx error rate
-    "http_4xx_rate": (
-        'sum(rate(http_requests_total{job="fastapi_app",handler="/predict",status="4xx"}[2m]))'
-    ),
-
-    # HTTP 5xx error rate
-    "http_5xx_rate": (
-        'sum(rate(http_requests_total{job="fastapi_app",handler="/predict",status="5xx"}[2m]))'
-    ),
-
-    # P95 latency
-    "http_latency_p95_seconds": (
-        'histogram_quantile(0.95, '
-        'sum(rate(http_request_duration_seconds_bucket{job="fastapi_app",handler="/predict"}[2m])) by (le))'
-    )
+    "cpu_usage_rate": 'rate(process_cpu_seconds_total{job="fastapi_app"}[2m])',
+    "memory_usage_bytes": 'process_resident_memory_bytes{job="fastapi_app"}',
+    "http_4xx_rate": 'sum(rate(http_requests_total{job="fastapi_app",handler="/predict",status="4xx"}[2m]))',
+    "http_5xx_rate": 'sum(rate(http_requests_total{job="fastapi_app",handler="/predict",status="5xx"}[2m]))',
+    "http_latency_p95_seconds": 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job="fastapi_app",handler="/predict"}[2m])) by (le))'
 }
 
 # 2. System Prompt & Few-Shot Instruction Set
@@ -47,32 +27,18 @@ You are an expert SRE Monitoring Agent running inside a Kubernetes/Infrastructur
 Your job is to analyze real-time metric snapshots and immediately flag operational anomalies.
 
 ### Operational Threshold Baselines:
-
-- cpu_usage_rate:
-  Normal < 0.8
-  High >= 0.85
-
-- memory_usage_bytes:
-  Sudden continuous increase may indicate a memory leak.
-
-- http_5xx_rate:
-  Normal = 0
-  Anomaly > 0
-
-- http_4xx_rate:
-  Normal < 1
-  Anomaly >= 1
-
-- http_latency_p95_seconds:
-  Normal < 0.5s
-  High >= 1.5s
+- cpu_usage_rate: Normal < 0.8, High >= 0.85
+- memory_usage_bytes: Sudden continuous increase may indicate a memory leak.
+- http_5xx_rate: Normal = 0, Anomaly > 0
+- http_4xx_rate: Normal < 1, Anomaly >= 1
+- http_latency_p95_seconds: Normal < 0.5s, High >= 1.5s
 
 ### Output Formatting Requirements:
-You MUST respond with a valid JSON object containing:
+You MUST respond with a valid JSON object containing exactly these keys:
 - `timestamp`: (Pass through the exact ISO timestamp provided in the input)
 - `anomaly_detected`: true / false
 - `suspect_metric`: Name of the primary offending metric or "none"
-- `reasoning`: Concise 1-sentence technical explanation
+- `analysis`: Concise 1-2 sentence technical summary of the issue.
 
 --- FEW-SHOT EXAMPLES ---
 
@@ -94,7 +60,7 @@ Output:
   "timestamp": "2026-07-28T14:00:00Z",
   "anomaly_detected": false,
   "suspect_metric": "none",
-  "reasoning": "All system metrics are operating within healthy baseline bounds."
+  "analysis": "All system metrics are operating within healthy baseline bounds."
 }
 
 Example 2 (Injected Bad Traffic / 4xx Flood):
@@ -115,7 +81,7 @@ Output:
   "timestamp": "2026-07-28T14:05:00Z",
   "anomaly_detected": true,
   "suspect_metric": "http_4xx_rate",
-  "reasoning": "Severe spike in 4xx error rate indicating malformed traffic injection attack."
+  "analysis": "Severe spike in 4xx error rate indicating malformed traffic injection attack."
 }
 
 Example 3 (Server Crash / 5xx Spike):
@@ -136,20 +102,13 @@ Output:
   "timestamp": "2026-07-28T14:15:00Z",
   "anomaly_detected": true,
   "suspect_metric": "http_5xx_rate",
-  "reasoning": "Critical 5xx response rate spike indicating backend server failure."
+  "analysis": "Critical 5xx response rate spike indicating backend server failure."
 }
 """
 
-
 def fetch_comprehensive_metrics():
-    """Fetches all metrics from Prometheus."""
-
     timestamp = datetime.now(timezone.utc).isoformat()
-
-    metrics_snapshot = {
-        "timestamp": timestamp,
-        "metrics": {}
-    }
+    metrics_snapshot = {"timestamp": timestamp, "metrics": {}}
 
     for metric_name, query in PROMETHEUS_QUERIES.items():
         try:
@@ -158,9 +117,7 @@ def fetch_comprehensive_metrics():
                 params={"query": query},
                 timeout=5,
             )
-
             response.raise_for_status()
-
             results = response.json()["data"]["result"]
 
             if len(results) == 0:
@@ -168,7 +125,6 @@ def fetch_comprehensive_metrics():
                 continue
 
             value = float(results[0]["value"][1])
-
             metrics_snapshot["metrics"][metric_name] = round(value, 4)
 
         except Exception as e:
@@ -177,8 +133,8 @@ def fetch_comprehensive_metrics():
 
     return metrics_snapshot
 
+
 def analyze_metrics_with_groq(snapshot_payload):
-    """Executes LLM Call with JSON enforcement."""
     user_prompt = f"Evaluate this metric snapshot:\n{json.dumps(snapshot_payload, indent=2)}"
 
     try:
@@ -200,7 +156,7 @@ def analyze_metrics_with_groq(snapshot_payload):
             "timestamp": snapshot_payload.get("timestamp"),
             "anomaly_detected": False,
             "suspect_metric": "none",
-            "reasoning": f"Pipeline failure: {str(e)}",
+            "analysis": f"Pipeline failure: {str(e)}",
         }
 
 

@@ -9,3 +9,14 @@
 2026-08-07 01:01:54,043 INFO Restarted pod 'inframind-model-deployment-797d585778-c6wnh' in namespace 'monitoring'.
 2026-08-07 01:02:11,626 INFO Successfully rolled back deployment 'inframind-model-deployment' in namespace 'monitoring'.
 2026-08-07 13:46:33,704 INFO Restarted pod 'inframind-model-deployment-7f56bfb8c-48p95' in namespace 'monitoring'.
+2026-08-26 04:20:40,100 INFO Successfully triggered rollout restart for 'inframind-model-deployment'.
+2026-08-26 04:21:11,844 INFO Successfully cordoned node 'inframind-control-plane'.
+2026-08-26 04:21:30,501 INFO Restarted pod 'inframind-model-deployment-7f46488b4b-2xrg2' in namespace 'monitoring'.
+2026-08-26 04:21:46,517 INFO Successfully rolled back deployment 'inframind-model-deployment' in namespace 'monitoring'.
+2026-08-26 04:21:48,489 INFO Successfully triggered rollout restart for 'inframind-model-deployment'.
+2026-08-26 04:21:50,825 INFO Successfully cordoned node 'inframind-control-plane'.
+2026-08-27 22:16:59,015 INFO Successfully triggered rollout restart for 'inframind-model-deployment'.
+2026-08-27 22:17:11,390 INFO Successfully cordoned node 'inframind-control-plane'.
+2026-08-27 22:53:55,224 INFO Successfully rolled back deployment 'inframind-model-deployment' in namespace 'monitoring'.
+2026-08-27 23:56:09,184 INFO Successfully rolled back deployment 'inframind-model-deployment' in namespace 'monitoring'.
+2026-08-28 00:02:12,418 INFO Successfully rolled back deployment 'inframind-model-deployment' in namespace 'monitoring'.

@@ -11,19 +11,23 @@ Usage:
   python3 live_verification.py restart   # restart_pod tool
   python3 live_verification.py hpa       # HPA autoscaling under real load
   python3 live_verification.py rollback  # rollback_deployment tool
-  python3 live_verification.py all       # run all three, print a summary
+  python3 live_verification.py rollout   # rollout_restart_deployment tool
+  python3 live_verification.py cordon    # cordon_node tool
+  python3 live_verification.py all       # run all, print a summary
 """
 import subprocess
 import sys
 import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent / "agents"))
-
-from tools import restart_pod, rollback_deployment  # noqa: E402
-from Traffic_injector import generate_chaos_request  # noqa: E402
+from agents.tools import (
+    restart_pod,
+    rollback_deployment,
+    cordon_node,
+    rollout_restart_deployment
+)
+from Traffic_injector import generate_chaos_request
 
 NAMESPACE = "monitoring"
 DEPLOYMENT = "inframind-model-deployment"
@@ -118,12 +122,7 @@ def verify_hpa_scaling(duration_seconds: int = 120, workers: int = 15) -> bool:
     print("=== HPA scaling live test ===")
     _ensure_port_forward()
 
-    # kubectl port-forward pins to a single backing pod, so with >1 replica
-    # already running, synthetic load only ever reaches one of them -- the
-    # other pods report no data for the custom pod metrics and the HPA
-    # errors out to <unknown> instead of reading low. Reset to a known
-    # single-pod baseline so the test is deterministic regardless of
-    # leftover replica count from earlier runs.
+    # Reset to a known single-pod baseline so the test is deterministic
     print("Resetting to a known baseline of 1 replica...")
     _kubectl("scale", "deployment", DEPLOYMENT, "-n", NAMESPACE, "--replicas=1")
     _kubectl("rollout", "status", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, "--timeout=90s")
@@ -194,15 +193,80 @@ def verify_rollback() -> bool:
     return False
 
 
+def verify_rollout_restart() -> bool:
+    print("=== rollout_restart_deployment live test ===")
+    pods_before = set(_get_pod_names())
+    print(f"Pods before restart: {pods_before}")
+
+    result = rollout_restart_deployment.invoke({"deployment_name": DEPLOYMENT})
+    print(f"Tool result: {result}")
+    
+    if result.get("status") != "success":
+        print("FAIL: rollout_restart_deployment did not report success")
+        return False
+
+    print("Waiting for rollout to complete...")
+    _kubectl("rollout", "status", f"deployment/{DEPLOYMENT}", "-n", NAMESPACE, "--timeout=90s")
+    
+    pods_after = set(_get_pod_names())
+    print(f"Pods after restart: {pods_after}")
+
+    if pods_before != pods_after:
+        print("PASS: Rollout completed and all pod identities have cycled.")
+        return True
+
+    print("FAIL: Pod names did not change, rollout may have failed silently.")
+    return False
+
+
+def verify_cordon_node() -> bool:
+    print("=== cordon_node live test ===")
+    
+    # Grab the first node in the kind cluster
+    nodes = _kubectl("get", "nodes", "-o", "jsonpath={.items[*].metadata.name}").split()
+    if not nodes:
+        print("FAIL: No nodes found in the cluster.")
+        return False
+        
+    target_node = nodes[0]
+    print(f"Targeting node: {target_node}")
+
+    # Invoke the tool
+    result = cordon_node.invoke({"node_name": target_node})
+    print(f"Tool result: {result}")
+    
+    if result.get("status") != "success":
+        print("FAIL: cordon_node did not report success")
+        return False
+
+    # Assert that the node is actually cordoned (unschedulable = true)
+    is_unschedulable = _kubectl("get", "node", target_node, "-o", "jsonpath={.spec.unschedulable}")
+    
+    passed = False
+    if is_unschedulable == "true":
+        print(f"PASS: Node '{target_node}' successfully cordoned (SchedulingDisabled).")
+        passed = True
+    else:
+        print(f"FAIL: Node '{target_node}' is not marked as unschedulable.")
+
+    # CRITICAL CLEANUP: Uncordon the node so we don't break the cluster for future tests
+    print(f"Cleaning up: Uncordoning '{target_node}'...")
+    _kubectl("uncordon", target_node)
+    
+    return passed
+
+
 if __name__ == "__main__":
     tests = {
         "restart": verify_restart_pod,
         "hpa": verify_hpa_scaling,
         "rollback": verify_rollback,
+        "rollout": verify_rollout_restart,
+        "cordon": verify_cordon_node,
     }
     which = sys.argv[1] if len(sys.argv) > 1 else "all"
     if which not in {*tests, "all"}:
-        print(f"Unknown test '{which}'. Choose from: restart, hpa, rollback, all")
+        print(f"Unknown test '{which}'. Choose from: restart, hpa, rollback, rollout, cordon, all")
         sys.exit(2)
 
     to_run = tests.items() if which == "all" else [(which, tests[which])]

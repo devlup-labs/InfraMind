@@ -1,0 +1,629 @@
+import { r as __toESM } from "../_runtime.mjs";
+import { n as require_jsx_runtime, r as require_react } from "../_libs/react+tanstack__react-query.mjs";
+import { a as LoaderCircle, c as ArrowUp, i as Paperclip, n as X, o as ChevronRight, r as Play, s as Check, t as Zap } from "../_libs/lucide-react.mjs";
+import { t as clsx } from "../_libs/clsx.mjs";
+import { t as twMerge } from "../_libs/tailwind-merge.mjs";
+//#region node_modules/.nitro/vite/services/ssr/assets/routes-BCcMulo7.js
+var import_react = /* @__PURE__ */ __toESM(require_react());
+var import_jsx_runtime = require_jsx_runtime();
+function AskBar() {
+	const [value, setValue] = (0, import_react.useState)("");
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+		className: "fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 backdrop-blur",
+		children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("form", {
+			onSubmit: (e) => {
+				e.preventDefault();
+				setValue("");
+			},
+			className: "mx-auto flex w-full max-w-7xl items-center gap-3 px-6 py-3",
+			children: [
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+					type: "button",
+					"aria-label": "Attach file",
+					className: "text-muted-foreground transition-colors hover:text-foreground",
+					children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Paperclip, { className: "size-4" })
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("input", {
+					value,
+					onChange: (e) => setValue(e.target.value),
+					placeholder: "Ask InfraMind — e.g. why did payment service fail last night?",
+					className: "flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+					type: "submit",
+					"aria-label": "Send",
+					className: "flex size-8 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-90",
+					children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ArrowUp, { className: "size-4" })
+				})
+			]
+		})
+	});
+}
+function cn(...inputs) {
+	return twMerge(clsx(inputs));
+}
+function Panel({ children, className }) {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("section", {
+		className: cn("rounded-lg border border-border bg-card p-5", className),
+		children
+	});
+}
+function PanelLabel({ children }) {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("h2", {
+		className: "text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground",
+		children
+	});
+}
+function Dot({ className }) {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: cn("inline-block size-2 shrink-0 rounded-full", className) });
+}
+function formatDuration(seconds) {
+	if (seconds === void 0 || seconds === null || Number.isNaN(seconds)) return "--:--";
+	const s = Math.max(0, Math.floor(seconds));
+	return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
+function IncidentReportCard({ report, anomaly }) {
+	const status = report?.status ?? (anomaly ? "Anomaly — investigating" : "No anomaly");
+	const body = report?.report ?? report?.summary ?? "No incident report yet. Run the pipeline to generate an analysis of the current system state.";
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Panel, { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+		className: "flex flex-wrap items-center justify-between gap-2",
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelLabel, { children: "Incident report" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+			className: cn("text-xs font-medium", anomaly ? "text-destructive" : "text-success"),
+			children: status
+		})]
+	}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+		className: "mt-3 text-sm leading-relaxed text-muted-foreground",
+		children: body
+	})] });
+}
+var FILTERS = [
+	{
+		key: "monitoring",
+		label: "Monitoring",
+		dot: "bg-agent-monitoring",
+		text: "text-agent-monitoring"
+	},
+	{
+		key: "root_cause",
+		label: "Root Cause",
+		dot: "bg-agent-root-cause",
+		text: "text-agent-root-cause"
+	},
+	{
+		key: "optimization",
+		label: "Optimization",
+		dot: "bg-agent-optimization",
+		text: "text-agent-optimization"
+	},
+	{
+		key: "reporting",
+		label: "Reporting",
+		dot: "bg-agent-reporting",
+		text: "text-agent-reporting"
+	}
+];
+function LiveLogs({ logs }) {
+	const [active, setActive] = (0, import_react.useState)(FILTERS.map((f) => f.key));
+	const scrollRef = (0, import_react.useRef)(null);
+	const visible = (0, import_react.useMemo)(() => logs.filter((l) => active.includes(l.agent)), [logs, active]);
+	(0, import_react.useEffect)(() => {
+		const el = scrollRef.current;
+		if (el) el.scrollTop = el.scrollHeight;
+	}, [visible.length]);
+	const toggle = (key) => setActive((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Panel, {
+		className: "flex min-h-0 flex-col",
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "flex flex-wrap items-center justify-between gap-3",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelLabel, { children: "Live logs" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+				className: "flex flex-wrap gap-1.5",
+				children: FILTERS.map((f) => {
+					const on = active.includes(f.key);
+					return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+						type: "button",
+						onClick: () => toggle(f.key),
+						className: cn("flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition-colors", on ? "border-border bg-background text-foreground" : "border-transparent bg-transparent text-muted-foreground/60"),
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Dot, { className: f.dot }), f.label]
+					}, f.key);
+				})
+			})]
+		}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+			ref: scrollRef,
+			className: "mt-4 h-72 overflow-y-auto rounded-lg border border-border bg-background p-3 font-mono text-xs leading-6",
+			children: visible.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+				className: "text-muted-foreground/70",
+				children: "Waiting for log stream…"
+			}) : visible.map((log, i) => {
+				const meta = FILTERS.find((f) => f.key === log.agent);
+				return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "flex gap-2",
+					children: [
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+							className: "text-muted-foreground/60",
+							children: log.timestamp
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+							className: meta?.text ?? "text-muted-foreground",
+							children: "•"
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+							className: "min-w-0 flex-1 break-words text-foreground/90",
+							children: log.message
+						})
+					]
+				}, `${log.timestamp}-${i}`);
+			})
+		})]
+	});
+}
+var TILES = [
+	{
+		key: "cpu_usage_rate",
+		label: "CPU usage rate",
+		digits: 2
+	},
+	{
+		key: "http_4xx_rate",
+		label: "HTTP 4xx rate",
+		unit: "req/s",
+		digits: 2
+	},
+	{
+		key: "http_5xx_rate",
+		label: "HTTP 5xx rate",
+		unit: "req/s",
+		digits: 2
+	},
+	{
+		key: "latency_p95",
+		label: "Latency p95",
+		unit: "s",
+		digits: 2
+	}
+];
+function Metrics({ data }) {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Panel, {
+		className: "flex flex-col",
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelLabel, { children: "Metrics" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+			className: "mt-4 flex flex-col gap-2.5",
+			children: TILES.map((tile) => {
+				const raw = data ? data[tile.key] : void 0;
+				const hasValue = typeof raw === "number" && !Number.isNaN(raw);
+				return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-4 py-3",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+						className: "min-w-0",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							className: "text-[11px] uppercase tracking-[0.1em] text-muted-foreground",
+							children: tile.label
+						}), !hasValue ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							className: "mt-1 text-xs text-muted-foreground/70",
+							children: "Waiting for data"
+						}) : null]
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("p", {
+						className: "shrink-0 text-right font-mono text-xl font-bold text-foreground",
+						children: [hasValue ? raw.toFixed(tile.digits) : "—", hasValue && tile.unit ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+							className: "ml-1 text-xs font-normal text-muted-foreground",
+							children: tile.unit
+						}) : null]
+					})]
+				}, tile.key);
+			})
+		})]
+	});
+}
+function formatTriggered(iso) {
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return iso;
+	return d.toLocaleString(void 0, {
+		month: "short",
+		day: "numeric",
+		hour: "2-digit",
+		minute: "2-digit"
+	});
+}
+function PastIncidents({ incidents }) {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Panel, { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+		className: "flex items-center justify-between gap-2",
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelLabel, { children: "Past incidents" }), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+			className: "text-xs text-muted-foreground",
+			children: [incidents.length, " recorded"]
+		})]
+	}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+		className: "mt-4 overflow-x-auto",
+		children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("table", {
+			className: "w-full text-left text-sm",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("thead", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", {
+				className: "text-[10px] uppercase tracking-[0.12em] text-muted-foreground",
+				children: [
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", {
+						className: "pb-2 pr-4 font-medium",
+						children: "Anomaly"
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", {
+						className: "pb-2 pr-4 font-medium",
+						children: "Triggered"
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", {
+						className: "pb-2 pr-4 font-medium",
+						children: "Root cause"
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", {
+						className: "pb-2 pr-4 font-medium",
+						children: "Duration"
+					}),
+					/* @__PURE__ */ (0, import_jsx_runtime.jsx)("th", {
+						className: "pb-2 font-medium",
+						children: "Status"
+					})
+				]
+			}) }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("tbody", { children: incidents.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("tr", { children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", {
+				colSpan: 5,
+				className: "py-6 text-center text-xs text-muted-foreground/70",
+				children: "No incidents recorded yet."
+			}) }) : incidents.map((incident, i) => {
+				const resolved = incident.status === "resolved";
+				return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("tr", {
+					className: "cursor-pointer border-t border-border transition-colors hover:bg-background",
+					children: [
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", {
+							className: "py-3 pr-4 font-mono text-xs text-foreground",
+							children: incident.anomaly
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", {
+							className: "py-3 pr-4 text-xs text-muted-foreground",
+							children: formatTriggered(incident.triggered_at)
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", {
+							className: "max-w-xs truncate py-3 pr-4 text-xs text-muted-foreground",
+							children: incident.root_cause
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", {
+							className: "py-3 pr-4 font-mono text-xs text-muted-foreground",
+							children: formatDuration(incident.duration_seconds)
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("td", {
+							className: "py-3",
+							children: /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+								className: `flex items-center gap-2 text-xs ${resolved ? "text-success" : "text-destructive"}`,
+								children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Dot, { className: resolved ? "bg-success" : "bg-destructive" }), resolved ? "Resolved" : "Failed"]
+							})
+						})
+					]
+				}, `${incident.anomaly}-${incident.triggered_at}-${i}`);
+			}) })]
+		})
+	})] });
+}
+var AGENTS = [
+	{
+		key: "monitoring",
+		name: "Monitoring Agent"
+	},
+	{
+		key: "root_cause",
+		name: "Root Cause Agent"
+	},
+	{
+		key: "optimization",
+		name: "Optimization Agent"
+	},
+	{
+		key: "reporting",
+		name: "Reporting Agent"
+	}
+];
+function StatusMark({ state }) {
+	switch (state.status) {
+		case "completed": return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+			className: "flex items-center gap-2 text-sm font-medium text-success",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Check, { className: "size-4" }), " Completed"]
+		});
+		case "running": return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+			className: "flex items-center gap-2 text-sm font-medium text-primary",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(LoaderCircle, { className: "size-4 animate-spin" }), " Running"]
+		});
+		case "failed": return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+			className: "flex items-center gap-2 text-sm font-medium text-destructive",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(X, { className: "size-4" }), " Failed"]
+		});
+		default: return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+			className: "flex items-center gap-2 text-sm font-medium text-idle",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Dot, { className: "bg-idle" }), " Standby"]
+		});
+	}
+}
+function PipelineStatusPanel({ data }) {
+	const agents = data?.agents;
+	const activeIndex = (() => {
+		if (!agents) return -1;
+		const running = AGENTS.findIndex((a) => agents[a.key]?.status === "running");
+		if (running !== -1) return running;
+		let last = -1;
+		AGENTS.forEach((a, i) => {
+			const s = agents[a.key]?.status;
+			if (s === "completed" || s === "failed") last = i;
+		});
+		return last;
+	})();
+	const anomaly = data?.anomaly_detected ?? false;
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Panel, { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+		className: "flex flex-wrap items-center justify-between gap-3",
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelLabel, { children: "Suspect metric" }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+			className: "mt-1 font-mono text-lg font-semibold text-foreground",
+			children: data?.suspect_metric ?? "none"
+		})] }), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "flex items-center gap-3",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("span", {
+				className: cn("flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium", anomaly ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-success/30 bg-success/10 text-success"),
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Dot, { className: anomaly ? "bg-destructive" : "bg-success" }), anomaly ? "Anomaly detected" : "No anomaly"]
+			}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+				className: "font-mono text-sm text-muted-foreground",
+				children: formatDuration(data?.elapsed_seconds)
+			})]
+		})]
+	}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+		className: "mt-5 flex items-stretch gap-1",
+		children: AGENTS.map((agent, i) => {
+			const state = agents?.[agent.key] ?? { status: "standby" };
+			return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+				className: "flex flex-1 items-center gap-1",
+				children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: cn("min-w-0 flex-1 rounded-lg border p-4 transition-colors", i === activeIndex ? "border-primary/50 bg-background" : "border-border bg-background/40 opacity-60"),
+					children: [
+						/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+							className: "flex items-start justify-between gap-2",
+							children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+								className: "text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground",
+								children: agent.name
+							}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", {
+								className: "font-mono text-[11px] text-muted-foreground",
+								children: formatDuration(state.duration_seconds)
+							})]
+						}),
+						/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+							className: "mt-3",
+							children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(StatusMark, { state })
+						}),
+						state.description ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+							className: "mt-2 line-clamp-3 text-xs leading-relaxed text-muted-foreground",
+							children: state.description
+						}) : null
+					]
+				}), i < AGENTS.length - 1 ? /* @__PURE__ */ (0, import_jsx_runtime.jsx)(ChevronRight, { className: "size-4 shrink-0 text-muted-foreground/50" }) : null]
+			}, agent.key);
+		})
+	})] });
+}
+var MODES = [{
+	key: "malformed",
+	label: "Malformed traffic"
+}, {
+	key: "heavy_load",
+	label: "Heavy valid load"
+}];
+function TrafficGenerator({ mode, onModeChange, onBombard, pending }) {
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(Panel, { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(PanelLabel, { children: "Traffic generator" }), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+		className: "mt-4 flex flex-wrap items-center justify-between gap-3",
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", {
+			className: "flex gap-2",
+			children: MODES.map((m) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("button", {
+				type: "button",
+				onClick: () => onModeChange(m.key),
+				className: cn("rounded-lg px-4 py-2 text-sm font-medium transition-colors", mode === m.key ? "bg-foreground text-background" : "border border-border text-muted-foreground hover:text-foreground"),
+				children: m.label
+			}, m.key))
+		}), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+			type: "button",
+			onClick: onBombard,
+			disabled: pending,
+			className: "flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60",
+			children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Zap, { className: "size-4" }), "Bombard traffic"]
+		})]
+	})] });
+}
+/**
+* Single source of truth for backend connectivity.
+* Swap the base URL / paths here when the real backend lands.
+*/
+var API_BASE_URL = {
+	"BASE_URL": "/",
+	"DEV": false,
+	"MODE": "production",
+	"PROD": true,
+	"SSR": true,
+	"TSS_DEV_SERVER": "false",
+	"TSS_DEV_SSR_STYLES_BASEPATH": "/",
+	"TSS_DEV_SSR_STYLES_ENABLED": "true",
+	"TSS_DISABLE_CSRF_MIDDLEWARE_WARNING": "false",
+	"TSS_INLINE_CSS_ENABLED": "false",
+	"TSS_ROUTER_BASEPATH": "",
+	"TSS_SERVER_FN_BASE": "/_serverFn/"
+}["VITE_API_BASE_URL"] ?? "http://localhost:8000";
+var API_ENDPOINTS = {
+	metrics: "/api/metrics",
+	logs: "/api/logs",
+	pipelineStatus: "/api/pipeline/status",
+	pipelineRun: "/api/pipeline/run",
+	trafficInject: "/api/traffic/inject",
+	incidentLatest: "/api/incident/latest",
+	incidents: "/api/incidents"
+};
+/** Polling interval (ms) for the live-data endpoints. */
+var POLL_INTERVAL_MS = 2e3;
+var apiUrl = (path) => `${API_BASE_URL.replace(/\/$/, "")}${path}`;
+async function request(path, init) {
+	const res = await fetch(apiUrl(path), {
+		headers: { "Content-Type": "application/json" },
+		...init
+	});
+	if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+	return await res.json();
+}
+var getMetrics = () => request(API_ENDPOINTS.metrics);
+var getLogs = () => request(API_ENDPOINTS.logs);
+var getPipelineStatus = () => request(API_ENDPOINTS.pipelineStatus);
+var getLatestIncident = () => request(API_ENDPOINTS.incidentLatest);
+var getIncidents = () => request(API_ENDPOINTS.incidents);
+var runPipeline = () => request(API_ENDPOINTS.pipelineRun, {
+	method: "POST",
+	body: JSON.stringify({})
+});
+var injectTraffic = (mode) => request(API_ENDPOINTS.trafficInject, {
+	method: "POST",
+	body: JSON.stringify({ mode })
+});
+/** Poll a fetcher on an interval, swallowing errors so the UI never crashes. */
+function usePoll(fetcher, intervalMs = POLL_INTERVAL_MS) {
+	const [data, setData] = (0, import_react.useState)(null);
+	const fetcherRef = (0, import_react.useRef)(fetcher);
+	fetcherRef.current = fetcher;
+	(0, import_react.useEffect)(() => {
+		let cancelled = false;
+		const tick = async () => {
+			try {
+				const next = await fetcherRef.current();
+				if (!cancelled) setData(next);
+			} catch {}
+		};
+		tick();
+		const id = setInterval(tick, intervalMs);
+		return () => {
+			cancelled = true;
+			clearInterval(id);
+		};
+	}, [intervalMs]);
+	return data;
+}
+var useMetrics = () => usePoll(getMetrics);
+var usePipelineStatus = () => usePoll(getPipelineStatus);
+/**
+* Live logs. Isolated here so it can become a WebSocket subscription later
+* without touching any component.
+*/
+function useLogs() {
+	const polled = usePoll(getLogs);
+	const [logs, setLogs] = (0, import_react.useState)([]);
+	const seen = (0, import_react.useRef)(/* @__PURE__ */ new Set());
+	(0, import_react.useEffect)(() => {
+		if (!Array.isArray(polled)) return;
+		const fresh = polled.filter((entry) => {
+			const key = `${entry.timestamp}|${entry.agent}|${entry.message}`;
+			if (seen.current.has(key)) return false;
+			seen.current.add(key);
+			return true;
+		});
+		if (fresh.length) setLogs((prev) => [...prev, ...fresh]);
+	}, [polled]);
+	return logs;
+}
+function useIncidents() {
+	const [incidents, setIncidents] = (0, import_react.useState)([]);
+	(0, import_react.useEffect)(() => {
+		let cancelled = false;
+		getIncidents().then((data) => {
+			if (!cancelled && Array.isArray(data)) setIncidents(data);
+		}).catch(() => void 0);
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+	return incidents;
+}
+function useIncidentReport(refreshKey) {
+	const [report, setReport] = (0, import_react.useState)(null);
+	(0, import_react.useEffect)(() => {
+		let cancelled = false;
+		getLatestIncident().then((data) => {
+			if (!cancelled) setReport(data);
+		}).catch(() => void 0);
+		return () => {
+			cancelled = true;
+		};
+	}, [refreshKey]);
+	return report;
+}
+function usePipelineActions() {
+	const [pending, setPending] = (0, import_react.useState)(null);
+	return {
+		run: (0, import_react.useCallback)(async () => {
+			setPending("pipeline");
+			try {
+				await runPipeline();
+				return true;
+			} catch {
+				return false;
+			} finally {
+				setPending(null);
+			}
+		}, []),
+		bombard: (0, import_react.useCallback)(async (mode) => {
+			setPending("traffic");
+			try {
+				await injectTraffic(mode);
+				return true;
+			} catch {
+				return false;
+			} finally {
+				setPending(null);
+			}
+		}, []),
+		pending
+	};
+}
+function Index() {
+	const metrics = useMetrics();
+	const logs = useLogs();
+	const pipeline = usePipelineStatus();
+	const incidents = useIncidents();
+	const [reportKey, setReportKey] = (0, import_react.useState)(0);
+	const report = useIncidentReport(reportKey);
+	const { run, bombard, pending } = usePipelineActions();
+	const [mode, setMode] = (0, import_react.useState)("malformed");
+	const reportingStatus = pipeline?.agents?.reporting?.status;
+	(0, import_react.useEffect)(() => {
+		if (reportingStatus === "completed") setReportKey((k) => k + 1);
+	}, [reportingStatus]);
+	return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("main", {
+		className: "min-h-screen bg-background pb-24",
+		children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+			className: "mx-auto flex w-full max-w-7xl flex-col gap-4 px-6 py-6",
+			children: [
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("header", {
+					className: "flex flex-wrap items-center justify-between gap-3",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)("h1", {
+						className: "text-2xl font-bold tracking-tight text-foreground",
+						children: "InfraMind"
+					}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)("p", {
+						className: "text-sm text-muted-foreground",
+						children: "Agentic observability pipeline"
+					})] }), /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", {
+						type: "button",
+						onClick: () => void run(),
+						disabled: pending === "pipeline",
+						className: "flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60",
+						children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(Play, { className: "size-4" }), "Run pipeline"]
+					})]
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(TrafficGenerator, {
+					mode,
+					onModeChange: setMode,
+					onBombard: () => void bombard(mode),
+					pending: pending === "traffic"
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(PipelineStatusPanel, { data: pipeline }),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", {
+					className: "grid gap-4 lg:grid-cols-[65fr_35fr]",
+					children: [/* @__PURE__ */ (0, import_jsx_runtime.jsx)(LiveLogs, { logs }), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(Metrics, { data: metrics })]
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(IncidentReportCard, {
+					report,
+					anomaly: pipeline?.anomaly_detected ?? false
+				}),
+				/* @__PURE__ */ (0, import_jsx_runtime.jsx)(PastIncidents, { incidents })
+			]
+		}), /* @__PURE__ */ (0, import_jsx_runtime.jsx)(AskBar, {})]
+	});
+}
+//#endregion
+export { Index as component };

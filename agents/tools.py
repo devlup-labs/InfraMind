@@ -283,119 +283,47 @@ def config_map_patch(
 ) -> dict:
     """Safely replace a ConfigMap key after verifying its live current value."""
 
-    if not configmap_name:
-        return {
-            "status": "failed",
-            "error": "configmap_name is required",
-        }
-
-    if not key:
-        return {
-            "status": "failed",
-            "error": "key is required",
-        }
-
-    if old_value is None:
-        return {
-            "status": "failed",
-            "error": "old_value is required",
-        }
-
-    if new_value is None:
-        return {
-            "status": "failed",
-            "error": "new_value is required",
-        }
+    if not configmap_name or not key or old_value is None or new_value is None:
+        return {"status": "failed", "error": "All parameters are required."}
 
     try:
-        # Get the LIVE ConfigMap value.
         result = subprocess.run(
-            [
-                "kubectl",
-                "get",
-                "configmap",
-                configmap_name,
-                "-n",
-                NAMESPACE,
-                "-o",
-                "json",
-            ],
+            ["kubectl", "get", "configmap", configmap_name, "-n", NAMESPACE, "-o", "json"],
             capture_output=True,
             text=True,
             check=False,
         )
 
         if result.returncode != 0:
-            return {
-                "status": "failed",
-                "error": result.stderr.strip(),
-            }
+            return {"status": "failed", "error": result.stderr.strip()}
 
         configmap = json.loads(result.stdout)
         data = configmap.get("data", {})
 
         if key not in data:
-            return {
-                "status": "failed",
-                "error": f"ConfigMap key '{key}' does not exist.",
-            }
+            return {"status": "failed", "error": f"ConfigMap key '{key}' does not exist."}
 
         live_value = str(data[key])
 
-        # Critical safety check:
-        # only patch if the value RCA analyzed is still current.
         if live_value != str(old_value):
             return {
                 "status": "conflict",
-                "reason": (
-                    f"Live value changed. Expected '{old_value}' "
-                    f"but found '{live_value}'. No patch applied."
-                ),
+                "reason": f"Live value changed. Expected '{old_value}' but found '{live_value}'. No patch applied.",
                 "configmap": configmap_name,
                 "key": key,
                 "live_value": live_value,
             }
 
-        # JSON merge patch: modify ONLY this ConfigMap key.
-        patch = json.dumps({
-            "data": {
-                key: str(new_value)
-            }
-        })
-
+        patch = json.dumps({"data": {key: str(new_value)}})
         patch_result = subprocess.run(
-            [
-                "kubectl",
-                "patch",
-                "configmap",
-                configmap_name,
-                "-n",
-                NAMESPACE,
-                "--type",
-                "merge",
-                "-p",
-                patch,
-            ],
+            ["kubectl", "patch", "configmap", configmap_name, "-n", NAMESPACE, "--type", "merge", "-p", patch],
             capture_output=True,
             text=True,
             check=False,
         )
 
         if patch_result.returncode != 0:
-            logger.error(
-                f"Failed to patch ConfigMap '{configmap_name}' "
-                f"key '{key}': {patch_result.stderr.strip()}"
-            )
-
-            return {
-                "status": "failed",
-                "error": patch_result.stderr.strip(),
-            }
-
-        logger.info(
-            f"Updated ConfigMap '{configmap_name}' "
-            f"key '{key}': '{old_value}' -> '{new_value}'."
-        )
+            return {"status": "failed", "error": patch_result.stderr.strip()}
 
         return {
             "status": "success",
@@ -406,9 +334,127 @@ def config_map_patch(
         }
 
     except Exception as e:
-        logger.exception("ConfigMap patch failed.")
+        return {"status": "failed", "error": str(e)}
 
-        return {
-            "status": "failed",
-            "error": str(e),
+
+@tool
+def cordon_node(node_name: str) -> dict:
+    """Cordon a Kubernetes node to mark it as unschedulable when node-level degradation is detected."""
+    if not node_name:
+        return {"status": "failed", "error": "node_name is required"}
+
+    try:
+        result = subprocess.run(
+            ["kubectl", "cordon", node_name],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        if result.returncode == 0:
+            return {"status": "success", "output": result.stdout.strip()}
+
+        return {"status": "failed", "error": result.stderr.strip()}
+
+    except Exception as e:
+        return {"status": "failed", "error": str(e)}
+
+
+@tool
+def rollout_restart_deployment(deployment_name: str) -> dict:
+    """Trigger a graceful rollout restart of a deployment to clear caches or reset cross-service connections."""
+    if not deployment_name:
+         return {"status": "failed", "error": "deployment_name is required"}
+    
+    try:
+        result = subprocess.run(
+            ["kubectl", "rollout", "restart", f"deployment/{deployment_name}", "-n", NAMESPACE],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            return {"status": "success", "output": result.stdout.strip()}
+        
+        return {"status": "failed", "error": result.stderr.strip()}
+        
+    except Exception as e:
+        return {"status": "failed", "error": str(e)}
+
+
+@tool
+def node_drain(node_name: str) -> dict:
+    """
+    Drains a Kubernetes node, safely evicting all running pods.
+    Use this when a node is experiencing severe hardware failure and workloads must be actively migrated.
+    """
+    if not node_name:
+         return {"status": "failed", "error": "node_name is required"}
+
+    try:
+        result = subprocess.run(
+            [
+                "kubectl", "drain", node_name,
+                "--ignore-daemonsets",
+                "--delete-emptydir-data",
+                "--force",
+                "--grace-period=30"
+            ],
+            capture_output=True, 
+            text=True, 
+            check=False
+        )
+        if result.returncode == 0:
+            return {"status": "success", "output": f"Node {node_name} actively drained."}
+        
+        return {"status": "failed", "error": result.stderr.strip()}
+    except Exception as e:
+        return {"status": "failed", "error": str(e)}
+
+
+@tool
+def adjust_inference_concurrency(configmap_name: str, new_batch_size: int, new_max_workers: int, deployment_name: str = "inframind-model-deployment") -> dict:
+    """
+    Adjusts batch size and concurrent workers for ML inference to fix latency bottlenecks.
+    Use this when metrics show high latency/timeouts but CPU and memory usage remain healthy, indicating a thread or concurrency bottleneck rather than a resource limit.
+    """
+    if not configmap_name or not new_batch_size or not new_max_workers:
+        return {"status": "failed", "error": "configmap_name, new_batch_size, and new_max_workers are required."}
+
+    try:
+        patch_data = {
+            "data": {
+                "MAX_BATCH_SIZE": str(new_batch_size),
+                "MAX_CONCURRENT_WORKERS": str(new_max_workers)
+            }
         }
+        
+        # Patch the ConfigMap
+        patch_result = subprocess.run(
+            [
+                "kubectl", "patch", "configmap", configmap_name,
+                "-n", NAMESPACE,
+                "-p", json.dumps(patch_data)
+            ],
+            capture_output=True, 
+            text=True, 
+            check=False
+        )
+        
+        if patch_result.returncode != 0:
+             return {"status": "failed", "error": f"ConfigMap patch failed: {patch_result.stderr.strip()}"}
+
+        # Immediately restart the deployment so new worker configs take effect
+        restart_result = subprocess.run(
+            ["kubectl", "rollout", "restart", f"deployment/{deployment_name}", "-n", NAMESPACE],
+            capture_output=True, 
+            text=True, 
+            check=False
+        )
+        
+        if restart_result.returncode != 0:
+            return {"status": "success_partial", "error": f"ConfigMap patched, but rollout failed: {restart_result.stderr.strip()}"}
+
+        return {"status": "success", "output": f"Concurrency tuned (Batch: {new_batch_size}, Workers: {new_max_workers}). Deployment restarted."}
+    except Exception as e:
+        return {"status": "failed", "error": str(e)}

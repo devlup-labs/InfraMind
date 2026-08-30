@@ -3,14 +3,14 @@ import uuid
 
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
-from qdrant_client.models import Distance, VectorParams, PointStruct , Filter
+from qdrant_client.models import Distance, VectorParams, PointStruct
 
 from embedding import generate_embeddings
 
 load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
-QDRANT_URL = os.getenv("QDRANT_URL")
-COLLECTION_NAME = os.getenv("QDRANT_COLLECTION")
+QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
+COLLECTION_NAME = os.getenv("QDRANT_COLLECTION", "inframind_logs")
 
 client = QdrantClient(url=QDRANT_URL)
 
@@ -19,7 +19,6 @@ def create_collection():
     """
     Creates the Qdrant collection if it doesn't already exist.
     """
-
     collections = client.get_collections().collections
     existing = [c.name for c in collections]
 
@@ -40,9 +39,10 @@ def store_logs(logs: list[str]):
     """
     Embeds logs and stores them in Qdrant.
     """
+    if not logs:
+        return
 
     embeddings = generate_embeddings(logs)
-
     points = []
 
     for log, vector in zip(logs, embeddings):
@@ -50,9 +50,7 @@ def store_logs(logs: list[str]):
             PointStruct(
                 id=str(uuid.uuid4()),
                 vector=vector,
-                payload={
-                    "log": log
-                }
+                payload={"log": log}
             )
         )
 
@@ -61,17 +59,16 @@ def store_logs(logs: list[str]):
         points=points,
         wait=True
     )
-
     print(f"Stored {len(points)} logs in Qdrant.")
 
 
 def search_logs(query: str, limit: int = 5):
     """
-    Searches Qdrant for logs similar to the query.
+    Searches Qdrant for logs similar to the generated query string.
     """
-
     query_vector = generate_embeddings([query])[0]
 
+    # Use the modern query_points method correct for your installed version
     results = client.query_points(
         collection_name=COLLECTION_NAME,
         query=query_vector,

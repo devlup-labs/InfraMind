@@ -8,6 +8,8 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 SYSTEM_PROMPT = """
 You are an incident-analysis assistant for a production ML/software system. 
+DO NOT output your internal thinking process. Do not use <think> tags. 
+Output ONLY the final markdown report.
 You will be given four things:
 1. An ANOMALY: a description of an abnormal condition detected by monitoring.
 2. A ROOT CAUSE LOG: the log entry most likely related to the anomaly.
@@ -68,7 +70,8 @@ FINAL SYSTEM STATUS:
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
         ],
-        temperature=0.1,
+        temperature=0.2,
+        max_tokens=4096,
     )
     return response.choices[0].message.content
 
