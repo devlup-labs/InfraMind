@@ -2,9 +2,9 @@ from typing import Dict, List
 
 from river import drift
 
-from ci_cd.error_calculation import calculate_error
-from ci_cd.model_predictions import get_model_predictions
-from ci_cd.scrape_metrics import fetch_features
+from error_calculation import calculate_error
+from model_predictions import get_model_predictions
+from scrape_metrics import fetch_features
 
 adwin_detectors: Dict[str, drift.ADWIN] = {}
 

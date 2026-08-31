@@ -7,7 +7,7 @@ one to the errors table.
 import logging
 from typing import Dict
 
-from ci_cd.postgres_db import add_error
+from postgres_db import add_error
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

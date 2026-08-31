@@ -1,25 +1,26 @@
 import os
-from typing import Dict
+from typing import Any, Dict
 
 import torch
 from chronos import ChronosPipeline
 from dotenv import load_dotenv
 
-from ci_cd.scrape_metrics import fetch_features
-from ci_cd.error_calculation import calculate_error
-
 load_dotenv()
+from scrape_metrics import fetch_features
+from error_calculation import calculate_error
+
 
 MODEL_NAME = os.getenv("MODEL_NAME")
 
 if MODEL_NAME is None:
     raise ValueError("MODEL_NAME is not set in the .env file.")
 
+
 # Cache the Chronos model so it loads only once.
-_model = None
+_model: Any = None
 
 
-def load_production_model():
+def load_production_model() -> Any:
     """
     Load the Amazon Chronos forecasting model from Hugging Face.
     """
@@ -30,7 +31,7 @@ def load_production_model():
 
     _model = ChronosPipeline.from_pretrained(
         MODEL_NAME,
-        device_map="cpu",          # Change to "cuda" later if needed.
+        device_map="cpu",
         torch_dtype=torch.bfloat16,
     )
 
@@ -49,22 +50,19 @@ def get_model_predictions(
     prediction_dict: Dict[str, float] = {}
 
     for metric_name, metric_value in input_features.items():
-
-        # NOTE:
-        # Currently using one metric value as context.
-        # Later this can be replaced with historical Prometheus values
-        # using query_range().
         context = torch.tensor(
-            [[metric_value]],
+            [metric_value],
             dtype=torch.float32,
         )
 
         forecast = model.predict(
-            context=context,
+            context,
             prediction_length=1,
         )
 
-        prediction_dict[metric_name] = float(forecast[0][0].item())
+        prediction_dict[metric_name] = float(
+            forecast[0].median().item()
+        )
 
     return prediction_dict
 

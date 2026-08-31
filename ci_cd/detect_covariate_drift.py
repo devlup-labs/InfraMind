@@ -8,8 +8,8 @@ import pandas as pd
 from evidently import Report
 from evidently.presets import DataDriftPreset
 
-from ci_cd.model_predictions import get_model_predictions
-from ci_cd.scrape_metrics import fetch_features
+from model_predictions import get_model_predictions
+from scrape_metrics import fetch_features
 
 
 def detect_covariate_drift() -> List[str]:
