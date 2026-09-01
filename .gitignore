@@ -13,3 +13,13 @@ __pycache__/
 .claude/
 
 *.log
+
+# Terraform local state, plans, provider cache, and environment-specific values.
+# Keep example variable files and the dependency lock file under version control.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+tfplan
+tfplan.json
