@@ -1,0 +1,55 @@
+name: Monitoring_cycle_24
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: single_day_pipeline
+  cancel-in-progress: true
+
+jobs:
+
+  model_drift_detection_retraining:
+
+    name: Model Drift Detection & Retraining
+    runs-on: ubuntu-latest
+
+    env:
+      MODEL_NAME: ${{ vars.MODEL_NAME }}
+      MODEL_URL: ${{ vars.MODEL_URL }}
+      PROMETHEUS_URL: ${{ vars.PROMETHEUS_URL }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Detect Concept Drift
+        working-directory: scripts
+        run: |
+          python detect_concept_drift.py
+
+      - name: Detect Covariate Drift
+        working-directory: scripts
+        run: |
+          python detect_covariate_drift.py
+
+      - name: Retrain Model
+        working-directory: scripts
+        if: env.DRIFT_DETECTED == 'true'
+        run: |
+          python retrain_model.py
+  
+    
