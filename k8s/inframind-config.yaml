@@ -4,3 +4,5 @@ metadata:
   name: inframind-app-config
 data:
   INFERENCE_TIMEOUT: "30"
+  MAX_BATCH_SIZE: "32"        
+  MAX_CONCURRENT_WORKERS: "4"

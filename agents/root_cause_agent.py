@@ -31,6 +31,10 @@ def run_kubectl(args: list[str]) -> str:
 
 def get_kubernetes_evidence() -> str:
     evidence = []
+    
+    nodes = run_kubectl(["get", "nodes"])
+    evidence.append(f"=== CURRENT NODES ===\n{nodes}")
+
     pods = run_kubectl(["get", "pods", "-n", K8S_NAMESPACE, "-l", "app=mock-model", "-o", "wide"])
     evidence.append(f"=== CURRENT PODS ===\n{pods}")
 
@@ -42,6 +46,15 @@ def get_kubernetes_evidence() -> str:
     if pod_name and not pod_name.startswith("KUBECTL_ERROR"):
         pod_description = run_kubectl(["describe", "pod", pod_name, "-n", K8S_NAMESPACE])
         evidence.append(f"=== POD DESCRIPTION / EVENTS ===\n{pod_description}")
+ 
+        node_name = run_kubectl(["get", "pod", pod_name, "-n", K8S_NAMESPACE, "-o", "jsonpath={.spec.nodeName}"])
+        
+        if node_name and not node_name.startswith("KUBECTL_ERROR"):
+           
+            node_description = run_kubectl(["describe", "node", node_name])
+            
+          
+            evidence.append(f"=== NODE DESCRIPTION ({node_name}) ===\n{node_description[:2500]}")
 
         pod_logs = run_kubectl(["logs", pod_name, "-n", K8S_NAMESPACE, "--tail=200"])
         evidence.append(f"=== CURRENT APPLICATION LOGS ===\n{pod_logs}")
@@ -202,6 +215,7 @@ def generate_search_query(suspect_metric: str, analysis: str) -> str:
 def analyze_root_cause(analysis_data: dict, logs: list, affected_pod: str = None, *args, **kwargs) -> dict:
     suspect_metric = str(analysis_data.get("suspect_metric", "unknown"))[:200]
     analysis_text = str(analysis_data.get("analysis", "No analysis provided."))[:500]
+    kubernetes_evidence = get_kubernetes_evidence()
     
     # Sanitize logs by removing explicit curly braces that confuse JSON generators
     raw_logs = str(logs)[:1500]
@@ -213,12 +227,31 @@ def analyze_root_cause(analysis_data: dict, logs: list, affected_pod: str = None
     Analysis: {analysis_text}
     Affected Environment: {str(affected_pod)[:1000] if affected_pod else "unknown"}
     Logs: {log_context}
+    Kubernetes Evidence: {kubernetes_evidence}
     
-    Provide a structured Root Cause Analysis. Output ONLY raw JSON. Do NOT use markdown formatting (no ```json).
+    Provide a structured Root Cause Analysis based on the provided logs and Kubernetes structural evidence.
+    
+    CRITICAL DIAGNOSIS RULES:
+    - If Kubernetes Evidence shows node-level faults (DiskPressure, MemoryPressure, NotReady), explicitly recommend node evacuation/cordoning.
+    - If metrics show high latency but CPU/Memory are healthy, and logs show timeout or waiting patterns, diagnose a thread/concurrency bottleneck.
+    - If a specific ConfigMap value is limiting performance, provide a structured config_recommendation to tune it.
+    
+    Output ONLY raw JSON. Do NOT use markdown formatting (no ```json).
     {{
-        "primary_cause": "Detailed explanation of the failure mechanism",
-        "log_evidence": "Specific log lines or patterns confirming the cause",
-        "recommended_action": "High-level strategy to fix the issue"
+        "primary_cause": "Detailed explanation of the failure mechanism, citing specific node or pod states if applicable.",
+        "log_evidence": "Specific log lines or K8s events confirming the cause.",
+        "recommended_action": "High-level strategy to fix the issue (e.g., drain node, adjust concurrency, patch limits, restart pod).",
+        "resource_recommendation": {{
+            "cpu": {{"recommended_limit": "new_value_if_needed"}},
+            "memory": {{"recommended_limit": "new_value_if_needed"}}
+        }},
+        "config_recommendation": {{
+            "configmap_name": "Name of configmap to patch (if applicable)",
+            "key": "Key to patch (e.g., MAX_CONCURRENT_WORKERS)",
+            "old_value": "Current value found in evidence",
+            "new_value": "Recommended tuned value",
+            "reason": "Why this config change fixes the bottleneck"
+        }}
     }}
     """
     

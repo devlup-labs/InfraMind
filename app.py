@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import asyncio
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -15,11 +16,21 @@ logHandler.setFormatter(formatter)
 logger.addHandler(logHandler)
 logger.setLevel(logging.INFO)
 
+# 1. Pull dynamic configurations
+inference_timeout = float(os.getenv("INFERENCE_TIMEOUT", "2.0"))
+max_batch_size = int(os.getenv("MAX_BATCH_SIZE", "32"))
+max_concurrent_workers = int(os.getenv("MAX_CONCURRENT_WORKERS", "4"))
+
+# 2. Create a semaphore to strictly limit concurrent model executions
+concurrency_semaphore = asyncio.Semaphore(max_concurrent_workers)
+
 logger.info("Loading DistilBERT model into memory...")
 try:
+    # 3. Wire the batch size directly into the HuggingFace pipeline
     classifier = pipeline(
         "sentiment-analysis",
-        model="distilbert-base-uncased-finetuned-sst-2-english"
+        model="distilbert-base-uncased-finetuned-sst-2-english",
+        batch_size=max_batch_size
     )
     logger.info("DistilBERT model loaded successfully.")
 except Exception as e:
@@ -46,7 +57,11 @@ async def predict(request: InferenceRequest):
     start = time.time()
 
     try:
-        result = classifier(request.text)[0]
+        # 4. Force requests to wait in line if workers are maxed out
+        async with concurrency_semaphore:
+            # When inside the semaphore block, execute the model
+            result = classifier(request.text)[0]
+            
         elapsed = time.time() - start
 
         if elapsed > inference_timeout:
