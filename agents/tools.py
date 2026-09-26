@@ -66,15 +66,29 @@ def _pod_is_excluded(pod) -> bool:
 
 
 HPA_MANIFEST_PATH = os.path.join(os.path.dirname(__file__), "hpa.yaml")
+CONFIGMAP_MANIFEST_PATH = os.path.join(
+    os.path.dirname(__file__), "..", "k8s", "inframind-config.yaml"
+)
+CONFIGMAP_NAME = "inframind-app-config"
 
 
 @tool
-def horizontal_pod_scaling():
+def horizontal_pod_scaling() -> dict:
     """Apply the Horizontal Pod Autoscaler for the application."""
-    subprocess.run(
-        ["kubectl", "apply", "-f", HPA_MANIFEST_PATH, "-n", NAMESPACE],
-        check=True
-    )
+    try:
+        subprocess.run(
+            ["kubectl", "apply", "-f", HPA_MANIFEST_PATH, "-n", NAMESPACE],
+            check=True
+        )
+        return {
+            "status": "success",
+            "output": "HPA manifest applied.",
+        }
+    except subprocess.CalledProcessError as e:
+        return {
+            "status": "failed",
+            "error": str(e),
+        }
 
 
 @tool
@@ -151,9 +165,42 @@ def rollback_deployment(deployment_name: str = "inframind-model-deployment") -> 
                 f"Successfully rolled back deployment '{deployment_name}' "
                 f"in namespace '{NAMESPACE}'."
             )
+
+            configmap_reset_note = ""
+            try:
+                cm_result = subprocess.run(
+                    [
+                        "kubectl", "apply",
+                        "-f", CONFIGMAP_MANIFEST_PATH,
+                        "-n", NAMESPACE,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if cm_result.returncode == 0:
+                    logger.info(
+                        f"Reconciled ConfigMap '{CONFIGMAP_NAME}' back to "
+                        f"manifest baseline alongside rollback."
+                    )
+                    configmap_reset_note = " ConfigMap reset to manifest baseline."
+                else:
+                    logger.warning(
+                        f"Rollback succeeded but ConfigMap reset failed: "
+                        f"{cm_result.stderr.strip()}"
+                    )
+                    configmap_reset_note = (
+                        " WARNING: ConfigMap reset failed, drift may persist."
+                    )
+            except Exception as e:
+                logger.warning(f"ConfigMap reset raised an exception: {e}")
+                configmap_reset_note = (
+                    " WARNING: ConfigMap reset failed, drift may persist."
+                )
+
             return {
                 "status": "success",
-                "output": result.stdout.strip(),
+                "output": result.stdout.strip() + configmap_reset_note,
             }
 
         logger.error(

@@ -8,6 +8,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_groq import ChatGroq
 
 from monitoring_agent import fetch_comprehensive_metrics
+from log_collector import get_pod_name
 from tools import (
     horizontal_pod_scaling,
     restart_pod,
@@ -54,7 +55,7 @@ Never invent values. Never estimate values. Never override structured recommenda
 
 # Bind JSON object formatting to force strict structural compliance from Qwen
 llm = ChatGroq(
-    model="qwen/qwen3.6-27b",
+    model="openai/gpt-oss-120b",
     temperature=0,
 ).bind(response_format={"type": "json_object"})
 
@@ -401,7 +402,6 @@ def wait_and_recheck_metrics() -> dict:
         "stabilized": stabilized,
     }
 
-
 def wait_and_recheck_node(state: dict) -> dict:
     recheck = wait_and_recheck_metrics()
 
@@ -411,8 +411,8 @@ def wait_and_recheck_node(state: dict) -> dict:
         "last_metrics": recheck["metrics"],
         "stabilized": recheck["stabilized"],
         "retry_count": retry_count,
+        "affected_pod": get_pod_name(),
     }
-
 
 def escalation_node(state: dict) -> dict:
     escalation = {

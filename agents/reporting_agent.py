@@ -46,6 +46,7 @@ Rules:
 - Never invent details that were not provided to you.
 """
 
+
 def generate_incident_report(anomaly: str, logs: list[str], root_cause: str, mitigation_history: str, final_status: str) -> str:
     prompt = f"""
 ANOMALY:
@@ -65,7 +66,7 @@ FINAL SYSTEM STATUS:
 """
 
     response = client.chat.completions.create(
-        model="qwen/qwen3.6-27b",
+        model="openai/gpt-oss-120b",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
@@ -75,37 +76,32 @@ FINAL SYSTEM STATUS:
     )
     return response.choices[0].message.content
 
-def reporting_agent(state: dict):
 
+def reporting_agent(state: dict):
     analysis = state.get("analysis", {})
-    anomaly = f"Metric: {analysis.get('suspect_metric')}\nReasoning: {analysis.get('reasoning')}"
+    anomaly = f"Metric: {analysis.get('suspect_metric')}\nReasoning: {analysis.get('analysis')}"
     logs = state.get("logs", [])
     root_cause = state.get("root_cause", "No root cause generated.")
-    
 
     history = state.get("mitigation_history", [])
     history_lines = []
     for h in history:
         attempt_num = h.get('attempt')
         tool = h.get('tool')
-        result_status = h.get('result', {}).get('status', 'unknown')
+        result_status = (h.get('result') or {}).get('status', 'unknown')
         history_lines.append(f"- Attempt {attempt_num}: Used {tool} (Result: {result_status})")
-    
     formatted_history = "\n".join(history_lines) if history_lines else "No automated actions attempted."
-    
 
     rollback_result = state.get("rollback_result")
     if rollback_result:
         formatted_history += f"\n- Rollback Execution: {rollback_result.get('status')}"
 
     final_status = state.get("final_status", "unknown")
- 
     report = generate_incident_report(
-        anomaly=anomaly, 
-        logs=logs, 
-        root_cause=root_cause, 
-        mitigation_history=formatted_history, 
+        anomaly=anomaly,
+        logs=logs,
+        root_cause=root_cause,
+        mitigation_history=formatted_history,
         final_status=final_status
     )
-    
     return {"incident_report": report}

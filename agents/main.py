@@ -1,3 +1,5 @@
+import json
+
 from typing import TypedDict
 
 from langgraph.graph import StateGraph, START, END
@@ -260,20 +262,26 @@ if __name__ == "__main__":
     )
 
     print("\n--- ROOT CAUSE ANALYSIS ---")
-    print(
-        result.get(
-            "root_cause",
-            "No root cause was generated."
-        )
-    )
+    root_cause = result.get("root_cause")
+    if not root_cause:
+        print("No root cause was generated.")
+    else:
+        print(f"Primary Cause: {root_cause.get('primary_cause', 'Unknown')}")
+        print(f"Recommended Action: {root_cause.get('recommended_action', 'N/A')}")
+        evidence = root_cause.get("evidence", [])
+        if evidence:
+            print("Evidence:")
+            for item in evidence:
+                print(f"  - {item}")
+        if root_cause.get("resource_recommendation"):
+            print("Resource Recommendation:")
+            print(json.dumps(root_cause["resource_recommendation"], indent=2))
+        if root_cause.get("config_recommendation"):
+            print("Config Recommendation:")
+            print(json.dumps(root_cause["config_recommendation"], indent=2))
 
     print("\n--- RESOURCE RECOMMENDATION ---")
-    print(
-        result.get(
-            "resource_recommendation",
-            {}
-        )
-    )
+    print(json.dumps(result.get("resource_recommendation", {}), indent=2))
 
     print("\n--- MITIGATION HISTORY ---")
 
