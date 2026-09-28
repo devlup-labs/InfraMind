@@ -17,10 +17,10 @@ def concept_drift_detector() -> List[str]:
         List of metric names where concept drift was detected.
     """
 
-    # Fetch latest Prometheus metrics.
+    
     actual_metrics_raw = fetch_features()
 
-    # Remove metrics that have missing values.
+   
     actual_metrics: Dict[str, float] = {
         metric: value
         for metric, value in actual_metrics_raw.items()
