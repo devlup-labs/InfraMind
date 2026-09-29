@@ -133,3 +133,18 @@ error: no rollout history found for deployment "inframind-model-deployment"
 2026-09-26 06:18:35,504 INFO Reconciled ConfigMap 'inframind-app-config' back to manifest baseline alongside rollback.
 2026-09-26 06:31:31,391 INFO Successfully rolled back deployment 'inframind-model-deployment' in namespace 'monitoring'.
 2026-09-26 06:31:31,696 INFO Reconciled ConfigMap 'inframind-app-config' back to manifest baseline alongside rollback.
+2026-09-27 02:47:37,145 INFO Restarted pod 'inframind-model-deployment-69cf88899-jbssb' in namespace 'monitoring'.
+2026-09-27 02:48:38,721 INFO Successfully rolled back deployment 'inframind-model-deployment' in namespace 'monitoring'.
+2026-09-27 02:48:39,068 INFO Reconciled ConfigMap 'inframind-app-config' back to manifest baseline alongside rollback.
+2026-09-27 23:01:12,515 INFO Restarted pod 'inframind-model-deployment-b79697674-24hfs' in namespace 'monitoring'.
+2026-09-27 23:02:14,276 INFO Successfully rolled back deployment 'inframind-model-deployment' in namespace 'monitoring'.
+2026-09-27 23:02:14,607 INFO Reconciled ConfigMap 'inframind-app-config' back to manifest baseline alongside rollback.
+2026-09-28 03:45:01,247 INFO Successfully rolled back deployment 'inframind-model-deployment' in namespace 'monitoring'.
+2026-09-28 03:45:01,368 INFO Reconciled ConfigMap 'inframind-app-config' back to manifest baseline alongside rollback.
+2026-09-29 01:54:29,662 INFO Restarted pod 'inframind-model-deployment-7c46b96fcf-szbxl' in namespace 'monitoring'.
+2026-09-29 01:54:59,942 INFO Successfully rolled back deployment 'inframind-model-deployment' in namespace 'monitoring'.
+2026-09-29 01:55:00,252 INFO Reconciled ConfigMap 'inframind-app-config' back to manifest baseline alongside rollback.
+2026-09-29 03:05:59,877 INFO Successfully rolled back deployment 'inframind-model-deployment' in namespace 'monitoring'.
+2026-09-29 03:06:00,224 INFO Reconciled ConfigMap 'inframind-app-config' back to manifest baseline alongside rollback.
+2026-09-29 22:32:27,466 INFO Restarted pod 'inframind-model-deployment-6bdb469d95-54c2f' in namespace 'monitoring'.
+2026-09-29 22:38:51,732 INFO Restarted pod 'inframind-model-deployment-6bdb469d95-65cvs' in namespace 'monitoring'.

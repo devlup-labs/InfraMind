@@ -18,3 +18,4 @@ langgraph
 langchain-core
 langchain-groq
 requests
+networkx>=3.0
