@@ -19,6 +19,18 @@ def load_pipeline(name_or_path: str) -> ChronosPipeline:
     )
 
 
+def prediction_length(pipeline: ChronosPipeline) -> int:
+    """The model's own native forecast horizon, baked in at pretraining time.
+
+    Training targets MUST be exactly this length - Chronos's tokenizer asserts
+    on it (label.shape[-1] == self.config.prediction_length) when building
+    labels for the loss. This is unrelated to the `prediction_length` you pass
+    to pipeline.predict() at inference, which can be any length; that's
+    autoregressive generation, not a fixed-shape training target.
+    """
+    return pipeline.tokenizer.config.prediction_length
+
+
 def save_pipeline(pipeline: ChronosPipeline, out_dir: Path) -> Path:
     """Save the fine-tuned weights. The saved config keeps `chronos_config`, so
     ChronosPipeline.from_pretrained(out_dir) works exactly like the original."""

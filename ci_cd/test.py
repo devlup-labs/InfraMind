@@ -247,18 +247,25 @@ TINY_MODEL = "amazon/chronos-t5-tiny"
 
 @pytest.mark.skipif(not RUN_MODEL_TESTS, reason="set RUN_MODEL_TESTS=1 (downloads a model)")
 def test_model_fine_tune_runs_and_returns_finite_loss():
-    from retraining.model_io import load_pipeline
+    from retraining.model_io import load_pipeline, prediction_length
     from retraining.trainer import fine_tune
 
     pipeline = load_pipeline(TINY_MODEL)
-    windows = make_windows(_synthetic_series(300, seed=3))
 
-    original_epochs, original_batch = config.EPOCHS, config.BATCH_SIZE
+    original_epochs = config.EPOCHS
+    original_batch = config.BATCH_SIZE
+    original_pred_len = config.PREDICTION_LENGTH
     try:
+        # Chronos asserts training targets match the model's own native
+        # horizon - can't use our arbitrary default here, must read it off
+        # the loaded model (same fix applied in retrain_model.py).
+        config.PREDICTION_LENGTH = prediction_length(pipeline)
         config.EPOCHS, config.BATCH_SIZE = 1, 8
+        windows = make_windows(_synthetic_series(300, seed=3))
         losses = fine_tune(pipeline, windows)
     finally:
         config.EPOCHS, config.BATCH_SIZE = original_epochs, original_batch
+        config.PREDICTION_LENGTH = original_pred_len
 
     assert len(losses) == 1
     assert np.isfinite(losses[0])
@@ -267,11 +274,17 @@ def test_model_fine_tune_runs_and_returns_finite_loss():
 @pytest.mark.skipif(not RUN_MODEL_TESTS, reason="set RUN_MODEL_TESTS=1 (downloads a model)")
 def test_evaluate_normalized_mae_is_nonnegative():
     from retraining.evaluate import normalized_mae
-    from retraining.model_io import load_pipeline
+    from retraining.model_io import load_pipeline, prediction_length
 
     pipeline = load_pipeline(TINY_MODEL)
-    val = make_windows(_synthetic_series(200, seed=4))
-    score = normalized_mae(pipeline, val)
+    original_pred_len = config.PREDICTION_LENGTH
+    try:
+        config.PREDICTION_LENGTH = prediction_length(pipeline)
+        val = make_windows(_synthetic_series(200, seed=4))
+        score = normalized_mae(pipeline, val)
+    finally:
+        config.PREDICTION_LENGTH = original_pred_len
+
     assert score >= 0
 
 

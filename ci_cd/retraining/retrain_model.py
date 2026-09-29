@@ -26,7 +26,7 @@ from retraining.dataset_builder import (
     split_train_val,
 )
 from retraining.evaluate import normalized_mae
-from retraining.model_io import load_pipeline, push_to_hub, save_pipeline
+from retraining.model_io import load_pipeline, prediction_length, push_to_hub, save_pipeline
 from retraining.trainer import fine_tune
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -49,6 +49,14 @@ def write_report(report: dict) -> None:
 
 def main() -> int:
     rng = np.random.default_rng(config.SEED)
+
+    # 0. load the model FIRST. Training windows' target length must exactly
+    # match this model's own native prediction_length (Chronos enforces this
+    # with an assert during tokenization) - so we read it here and use it for
+    # windowing below, rather than assuming a fixed value.
+    pipeline = load_pipeline(config.model_name())
+    config.PREDICTION_LENGTH = prediction_length(pipeline)
+    logger.info("Model's native prediction_length=%d (used for training windows)", config.PREDICTION_LENGTH)
 
     # 1. data
     baseline_df = load_baseline()
@@ -73,7 +81,6 @@ def main() -> int:
     val = Windows.concat([base_val, new_val])
 
     # 4. evaluate -> train -> evaluate
-    pipeline = load_pipeline(config.model_name())
     score_before = normalized_mae(pipeline, val)
     logger.info("Val normalized MAE before: %.4f", score_before)
 
