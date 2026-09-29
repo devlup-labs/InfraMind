@@ -1,0 +1,59 @@
+name: Monitoring_cycle_24
+
+on:
+  schedule:
+    - cron: "0 0 * * *"        # once a day, was */15 * * * * (same as the 15-min job)
+  workflow_dispatch: {}
+
+concurrency:
+  group: single_day_pipeline
+  cancel-in-progress: true
+
+jobs:
+  model_drift_detection_retraining:
+    name: Model Drift Detection & Retraining
+    runs-on: ubuntu-latest
+    env:
+      MODEL_NAME: ${{ vars.MODEL_NAME }}
+      PROMETHEUS_URL: ${{ vars.PROMETHEUS_URL }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+      HF_REPO_ID: ${{ vars.HF_REPO_ID }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Detect Concept Drift
+        id: concept
+        working-directory: ci_cd          # was: scripts (doesn't exist)
+        run: python detect_concept_drift.py
+
+      - name: Detect Covariate Drift
+        id: covariate
+        working-directory: ci_cd          # was: scripts (doesn't exist)
+        run: python detect_covariate_drift.py
+
+      - name: Set drift flag
+        if: steps.concept.outputs.concept_drift == 'true' || steps.covariate.outputs.covariate_drift == 'true'
+        run: echo "DRIFT_DETECTED=true" >> "$GITHUB_ENV"
+
+      - name: Retrain Model
+        if: env.DRIFT_DETECTED == 'true'
+        working-directory: ci_cd          # was: scripts (doesn't exist)
+        run: python retrain_model.py
+
+      - name: Upload retrain report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrain-report
+          path: ci_cd/artifacts/retrain_report.json
+          if-no-files-found: ignore

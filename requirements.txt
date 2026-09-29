@@ -24,3 +24,4 @@ river
 evidently
 chronos-forecasting
 psycopg2-binary
+pytest

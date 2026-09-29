@@ -30,21 +30,23 @@ HF_TOKEN = os.getenv("HF_TOKEN")            # optional: only needed to push the 
 HF_REPO_ID = os.getenv("HF_REPO_ID")        # optional: e.g. "rudri/inframind-chronos"
 
 # ---------------------------------------------------------------- metrics
-# metric name -> PromQL. Each query must return ONE series (aggregate with sum/avg).
-# IMPORTANT: copy the exact queries/names you use in scrape_metrics.py so the
-# training data matches what the model sees at inference time.
-# Keys MUST match the keys returned by scrape_metrics.fetch_features(), otherwise the
-# model is trained on different series than it predicts at inference time.
+# Copied verbatim from scrape_metrics.FEATURE_QUERIES. Keep these two in sync by
+# hand — if the keys or queries drift apart, the model trains on different
+# series than it sees at inference time.
 METRIC_QUERIES = {
-    "request_rate": 'sum(rate(http_requests_total[1m]))',
-    "cpu_usage_rate": 'avg(rate(container_cpu_usage_seconds_total[1m]))',
-    "memory_usage_bytes": 'sum(container_memory_rss)',
-    "p95_latency_seconds": 'histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[1m])) by (le))',
+    "request_rate": "sum(rate(http_requests_total[5m]))",
+    "cpu_usage_rate": "avg(rate(process_cpu_seconds_total[5m]))",
+    "memory_usage_bytes": "avg(process_resident_memory_bytes)",
+    "p95_latency_seconds": (
+        "histogram_quantile(0.95, "
+        "sum(rate(http_request_duration_seconds_bucket[5m])) by (le))"
+    ),
 }
 
 STEP_SECONDS = 60                    # Prometheus resolution used for training series
 MAX_POINTS_PER_QUERY = 10_000        # Prometheus caps at 11,000 points per query
-NEW_DATA_LOOKBACK_HOURS = 24 * 7     # how far back to pull the "new" data
+NEW_DATA_LOOKBACK_HOURS = 24 * 7     # how far back to pull the "new" data (retraining)
+COVARIATE_LOOKBACK_HOURS = 24        # how far back to pull "current" data (drift check)
 
 # ---------------------------------------------------------------- data mix
 BASELINE_RATIO = 0.70
