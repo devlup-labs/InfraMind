@@ -1,0 +1,15 @@
+# add any of these that are missing from your root requirements.txt
+chronos-forecasting
+torch
+pandas
+numpy
+scipy
+evidently
+river>=0.21
+sqlalchemy
+psycopg2-binary
+python-dotenv
+huggingface_hub
+pyarrow
+requests
+pytest
