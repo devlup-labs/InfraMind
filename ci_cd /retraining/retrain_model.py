@@ -1,13 +1,14 @@
 """Entry point for the retraining step of the InfraMind CI/CD pipeline.
 
-    cd ci_cd && python retrain_model.py
+    cd ci_cd && python retrain_model.py   (or: python -m retraining.retrain_model)
 
 Flow:
-    1. load fixed baseline (70%) + fetch new Prometheus data (30%)
-    2. split each into train / held-out val (time-ordered), window them
+    1. load the fixed baseline (70% = Chronos original-data replay) and fetch new
+       Prometheus data (30%)
+    2. hold out the newest slice of the NEW data for validation (time-ordered)
     3. build the 70/30 training mix
-    4. score the current model, fine-tune, score again
-    5. promote (save + optional HF push) only if the new model is better
+    4. score the current model on the held-out live data, fine-tune, score again
+    5. promote (save + optional HF push) only if the new model is better on LIVE data
 """
 import json
 import logging
@@ -20,7 +21,6 @@ from retraining import config
 from retraining.data_sources import fetch_new_data, load_baseline
 from retraining.dataset_builder import (
     InsufficientNewData,
-    Windows,
     make_windows,
     mix_baseline_and_new,
     split_train_val,
@@ -43,30 +43,26 @@ def set_github_output(key: str, value: str) -> None:
 
 def write_report(report: dict) -> None:
     config.ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
-    config.REPORT_PATH.write_text(json.dumps(report, indent=2))
+    config.REPORT_PATH.write_text(json.dumps(report, indent=2, default=float))
     logger.info("Report written to %s", config.REPORT_PATH)
 
 
 def main() -> int:
     rng = np.random.default_rng(config.SEED)
 
-    # 0. load the model FIRST. Training windows' target length must exactly
-    # match this model's own native prediction_length (Chronos enforces this
-    # with an assert during tokenization) - so we read it here and use it for
-    # windowing below, rather than assuming a fixed value.
+    # 0. load the model FIRST. Training windows' target length must exactly match this
+    #    model's native prediction_length (Chronos enforces it).
     pipeline = load_pipeline(config.model_name())
     config.PREDICTION_LENGTH = prediction_length(pipeline)
     logger.info("Model's native prediction_length=%d (used for training windows)", config.PREDICTION_LENGTH)
 
-    # 1. data
+    # 1. data: 70% = Chronos original-data replay, 30% = fresh Prometheus data
     baseline_df = load_baseline()
     new_df = fetch_new_data()
 
-    # 2. per-source time split, then windows
-    base_train_df, base_val_df = split_train_val(baseline_df, config.VAL_FRACTION)
+    # 2. only the NEW (live) data is held out: promotion is judged on OUR metrics
     new_train_df, new_val_df = split_train_val(new_df, config.VAL_FRACTION)
-
-    base_train, base_val = make_windows(base_train_df), make_windows(base_val_df)
+    base_train = make_windows(baseline_df)
     new_train, new_val = make_windows(new_train_df), make_windows(new_val_df)
 
     # 3. 70/30 mix
@@ -78,7 +74,13 @@ def main() -> int:
         set_github_output("promoted", "false")
         return 0
 
-    val = Windows.concat([base_val, new_val])
+    if len(new_val) == 0:
+        reason = "No held-out live validation windows available."
+        logger.warning("Skipping retraining: %s", reason)
+        write_report({"retrained": False, "promoted": False, "reason": reason})
+        set_github_output("promoted", "false")
+        return 0
+    val = new_val
 
     # 4. evaluate -> train -> evaluate
     score_before = normalized_mae(pipeline, val)
@@ -98,18 +100,16 @@ def main() -> int:
     else:
         logger.warning("New model is not better than the current one, not promoting.")
 
-    write_report(
-        {
-            "retrained": True,
-            "promoted": promoted,
-            "pushed_to_hub": pushed,
-            "val_windows": len(val),
-            "mix": mix_stats,
-            "epoch_losses": losses,
-            "val_nmae_before": score_before,
-            "val_nmae_after": score_after,
-        }
-    )
+    write_report({
+        "retrained": True,
+        "promoted": promoted,
+        "pushed_to_hub": pushed,
+        "val_windows": len(val),
+        "mix": mix_stats,
+        "epoch_losses": losses,
+        "val_nmae_before": score_before,
+        "val_nmae_after": score_after,
+    })
     set_github_output("promoted", str(promoted).lower())
     return 0
 

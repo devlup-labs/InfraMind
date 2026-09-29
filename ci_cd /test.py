@@ -3,13 +3,13 @@
 Run from ci_cd/:
 
     pip install pytest
-    pytest test.py -v                     # pure logic, offline, no services needed
-    DATABASE_URL=<url> pytest test.py -v  # + Postgres roundtrip test
-    RUN_MODEL_TESTS=1 pytest test.py -v   # + real Chronos fine-tune/eval (slow, downloads
-                                           #   amazon/chronos-t5-tiny, needs network)
+    pytest test.py -v                              # pure logic, offline, no services needed
+    DATABASE_URL=<url> pytest test.py -v           # + Postgres roundtrip test
+    RUN_MODEL_TESTS=1 pytest test.py -v -k model   # + real Chronos fine-tune/eval (slow, downloads
+                                                   #   amazon/chronos-t5-tiny, needs network)
 
-Everything except the two opt-in groups above runs with no Prometheus, no
-Postgres, and no model download — data is synthetic and injected directly.
+Everything except the two opt-in groups above runs with no Prometheus, no Postgres and
+no model download - data is synthetic and injected directly.
 """
 import os
 import sys
@@ -23,10 +23,9 @@ import pytest
 # __init__.py next to it, but keep this so `python test.py` also works.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-# postgres_db.py reads DATABASE_URL at import time (os.environ[...]); set a
-# placeholder so importing detect_concept_drift / error_calculation doesn't
-# crash before any test even runs. No connection is attempted until a DB
-# function is actually called (ensure_schema is lazy) - see postgres_db.py.
+# postgres_db.py reads DATABASE_URL at import time; set a placeholder so importing
+# detect_concept_drift / error_calculation doesn't crash before any test runs.
+# No connection is attempted until a DB function is actually called (ensure_schema is lazy).
 os.environ.setdefault("DATABASE_URL", "postgresql://test:test@localhost:5432/test")
 
 from retraining import config  # noqa: E402
@@ -52,8 +51,8 @@ def _synthetic_series(n=200, metric="request_rate", start=0.0, step=60, seed=0):
 
 def test_clean_fills_short_gaps_and_drops_duplicates():
     df = _synthetic_series(20)
-    df.loc[5, "value"] = np.nan            # short gap (<=3 points): should be filled
-    df = pd.concat([df, df.iloc[[0]]])     # exact duplicate row: should be dropped
+    df.loc[5, "value"] = np.nan                      # short gap (<=3 points): should be filled
+    df = pd.concat([df, df.iloc[[0]]])               # exact duplicate row: should be dropped
     cleaned = _clean(df)
     assert cleaned["value"].isna().sum() == 0
     assert cleaned.duplicated(subset=["metric", "timestamp"]).sum() == 0
@@ -61,9 +60,54 @@ def test_clean_fills_short_gaps_and_drops_duplicates():
 
 def test_clean_drops_points_with_long_gaps():
     df = _synthetic_series(20)
-    df.loc[5:10, "value"] = np.nan         # 6-point gap, longer than the fill limit
+    df.loc[5:10, "value"] = np.nan                   # 6-point gap, longer than the fill limit
     cleaned = _clean(df)
     assert len(cleaned) < len(df)
+
+
+# ---------------------------------------------------------------------------
+# data_sources.load_baseline / build_replay (Chronos original data as the 70%)
+# ---------------------------------------------------------------------------
+
+def test_replay_as_series_cleans_and_caps():
+    from retraining.build_replay import _as_series
+
+    raw = list(np.random.default_rng(0).normal(0, 1, 800))
+    raw[10] = None                                   # missing value is interpolated
+    arr = _as_series(raw)
+    assert len(arr) == config.REPLAY_MAX_POINTS
+    assert np.isfinite(arr).all()
+
+    assert _as_series([1.0] * 800) is None           # flat series is useless
+    assert _as_series(list(range(10))) is None       # too short
+
+
+def test_replay_to_long_and_load_baseline(tmp_path, monkeypatch):
+    from retraining import data_sources
+    from retraining.build_replay import to_long
+
+    series = [np.random.default_rng(i).normal(0, 1, 300) for i in range(3)]
+    long_df = to_long(series, "tsmixup_10m")
+    assert set(long_df.columns) == {"timestamp", "metric", "value"}
+    assert long_df["metric"].nunique() == 3
+
+    path = tmp_path / "baseline.csv"
+    long_df.to_csv(path, index=False)
+    monkeypatch.setattr(config, "BASELINE_PATH", path)
+    loaded = data_sources.load_baseline()
+    assert loaded["metric"].nunique() == 3
+    assert len(loaded) == 900
+
+
+def test_replay_baseline_windows_and_mix():
+    from retraining.build_replay import to_long
+
+    rng = np.random.default_rng(0)
+    replay = to_long([np.random.default_rng(i).normal(0, 1, 300) for i in range(5)], "replay")
+    baseline = make_windows(replay)
+    new = make_windows(_synthetic_series(config.MIN_NEW_WINDOWS + 300, seed=2))
+    train, stats = mix_baseline_and_new(baseline, new, rng)
+    assert abs(stats["baseline_share"] - config.BASELINE_RATIO) < 0.02
 
 
 # ---------------------------------------------------------------------------
@@ -80,13 +124,13 @@ def test_make_windows_shapes():
 
 
 def test_make_windows_skips_series_shorter_than_one_window():
-    df = _synthetic_series(config.CONTEXT_LENGTH)  # one point short of a full window
+    df = _synthetic_series(config.CONTEXT_LENGTH)    # one point short of a full window
     windows = make_windows(df)
     assert len(windows) == 0
 
 
 def test_make_windows_handles_multiple_metrics_independently():
-    too_short = config.CONTEXT_LENGTH + config.PREDICTION_LENGTH - 1  # one point shy of a window
+    too_short = config.CONTEXT_LENGTH + config.PREDICTION_LENGTH - 1   # one point shy of a window
     df = pd.concat([
         _synthetic_series(200, metric="request_rate", seed=0),
         _synthetic_series(too_short, metric="cpu_usage_rate", seed=1),  # gets skipped
@@ -139,7 +183,7 @@ def test_mix_raises_when_new_data_is_too_scarce():
     rng = np.random.default_rng(0)
     baseline = make_windows(_synthetic_series(500, seed=1))
     tiny_new = make_windows(
-        _synthetic_series(config.CONTEXT_LENGTH + config.PREDICTION_LENGTH, seed=2)
+        _synthetic_series(config.CONTEXT_LENGTH + config.PREDICTION_LENGTH + 2, seed=2)
     )
     with pytest.raises(InsufficientNewData):
         mix_baseline_and_new(baseline, tiny_new, rng)
@@ -152,13 +196,21 @@ def test_mix_raises_when_new_data_is_too_scarce():
 def test_concept_drift_flags_a_clear_error_jump():
     from detect_concept_drift import concept_drift_detector
 
-    stable = list(np.random.default_rng(0).normal(0, 0.1, 200))
-    jump = list(np.random.default_rng(1).normal(5, 0.1, 200))
+    stable = list(np.random.default_rng(0).normal(0, 0.1, 300))
+    jump = list(np.random.default_rng(1).normal(5, 0.1, 20))     # recent jump
     history = {"request_rate": stable + jump, "cpu_usage_rate": stable}
 
     drifted = concept_drift_detector(history)
     assert "request_rate" in drifted
     assert "cpu_usage_rate" not in drifted
+
+
+def test_concept_drift_ignores_old_drift():
+    from detect_concept_drift import concept_drift_detector
+
+    old = (list(np.random.default_rng(0).normal(0, 0.1, 200))
+           + list(np.random.default_rng(1).normal(5, 0.1, 320)))
+    assert concept_drift_detector({"request_rate": old}) == []
 
 
 def test_concept_drift_empty_history_returns_no_drift():
@@ -168,8 +220,8 @@ def test_concept_drift_empty_history_returns_no_drift():
 
 
 # ---------------------------------------------------------------------------
-# detect_covariate_drift (pure pivot helper - Evidently call itself is
-# exercised via mocked data_sources so no live Prometheus is needed)
+# detect_covariate_drift (pure pivot helper + KS; Evidently is best-effort, and
+# the data sources are mocked so no live Prometheus is needed)
 # ---------------------------------------------------------------------------
 
 def test_to_wide_pivots_long_format_and_aligns_metrics():
@@ -189,9 +241,9 @@ def test_detect_covariate_drift_flags_a_shifted_distribution(monkeypatch):
 
     reference = _synthetic_series(300, metric="request_rate", seed=0)
     shifted = _synthetic_series(300, metric="request_rate", seed=1)
-    shifted["value"] += 50  # obvious distribution shift
+    shifted["value"] += 50                           # obvious distribution shift
 
-    monkeypatch.setattr(dcd, "load_baseline", lambda: reference)
+    monkeypatch.setattr(dcd, "load_reference", lambda: reference)
     monkeypatch.setattr(dcd, "fetch_prometheus_data", lambda hours: shifted)
 
     drifted = dcd.detect_covariate_drift()
@@ -202,13 +254,31 @@ def test_detect_covariate_drift_no_drift_when_distributions_match(monkeypatch):
     import detect_covariate_drift as dcd
 
     reference = _synthetic_series(300, metric="request_rate", seed=0)
-    similar = _synthetic_series(300, metric="request_rate", seed=1)  # same mean/std
+    similar = _synthetic_series(300, metric="request_rate", seed=1)   # same mean/std
 
-    monkeypatch.setattr(dcd, "load_baseline", lambda: reference)
+    monkeypatch.setattr(dcd, "load_reference", lambda: reference)
     monkeypatch.setattr(dcd, "fetch_prometheus_data", lambda hours: similar)
 
     drifted = dcd.detect_covariate_drift()
     assert drifted == []
+
+
+# ---------------------------------------------------------------------------
+# error_calculation (DB call mocked)
+# ---------------------------------------------------------------------------
+
+def test_calculate_error_skips_missing_and_non_finite(monkeypatch):
+    import error_calculation as ec
+
+    stored = []
+    monkeypatch.setattr(ec, "add_error", lambda m, e, solved=False: stored.append((m, e)))
+
+    errors = ec.calculate_error(
+        {"a": 10.0, "b": None, "c": float("nan"), "d": 5.0},
+        {"a": 8.0, "b": 1.0, "c": 1.0},              # "d" has no prediction
+    )
+    assert errors == {"a": 2.0}
+    assert stored == [("a", 2.0)]
 
 
 # ---------------------------------------------------------------------------
@@ -257,7 +327,7 @@ def test_model_fine_tune_runs_and_returns_finite_loss():
     original_pred_len = config.PREDICTION_LENGTH
     try:
         # Chronos asserts training targets match the model's own native
-        # horizon - can't use our arbitrary default here, must read it off
+        # horizon - can't use our arbitrary default, must read it off
         # the loaded model (same fix applied in retrain_model.py).
         config.PREDICTION_LENGTH = prediction_length(pipeline)
         config.EPOCHS, config.BATCH_SIZE = 1, 8
@@ -272,7 +342,7 @@ def test_model_fine_tune_runs_and_returns_finite_loss():
 
 
 @pytest.mark.skipif(not RUN_MODEL_TESTS, reason="set RUN_MODEL_TESTS=1 (downloads a model)")
-def test_evaluate_normalized_mae_is_nonnegative():
+def test_model_evaluate_normalized_mae_is_nonnegative():
     from retraining.evaluate import normalized_mae
     from retraining.model_io import load_pipeline, prediction_length
 
@@ -281,10 +351,10 @@ def test_evaluate_normalized_mae_is_nonnegative():
     try:
         config.PREDICTION_LENGTH = prediction_length(pipeline)
         val = make_windows(_synthetic_series(200, seed=4))
-        score = normalized_mae(pipeline, val)
     finally:
         config.PREDICTION_LENGTH = original_pred_len
 
+    score = normalized_mae(pipeline, val)
     assert score >= 0
 
 

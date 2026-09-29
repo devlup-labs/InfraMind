@@ -1,10 +1,6 @@
-"""
-Compares actual (scraped) metric values against the model's predicted
-values for the same metrics, computes the per-metric error, and logs each
-one to the errors table.
-"""
-
+"""Prediction-error calculation for the monitoring cycle."""
 import logging
+import math
 from typing import Dict
 
 from postgres_db import add_error
@@ -32,12 +28,14 @@ def calculate_error(
     for metric_name, actual_value in actual_metrics.items():
         predicted_value = predicted_metrics.get(metric_name)
 
-        # Skip if prediction is missing for any metric.
-        if predicted_value is None:
-            logger.warning(
-                "Skipping metric '%s': prediction not available.",
-                metric_name,
-            )
+        # Skip if either side is missing or not a real number.
+        if (
+            actual_value is None
+            or predicted_value is None
+            or not math.isfinite(actual_value)
+            or not math.isfinite(predicted_value)
+        ):
+            logger.warning("Skipping metric '%s': missing actual or prediction.", metric_name)
             continue
 
         error = actual_value - predicted_value

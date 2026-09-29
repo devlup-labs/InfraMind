@@ -1,6 +1,6 @@
-"""Loading the fixed baseline dataset and pulling fresh metrics from Prometheus.
+"""Loading the fixed datasets and pulling fresh metrics from Prometheus.
 
-Both sources are returned in the same long format:
+Every source is returned in the same long format:
     timestamp (unix seconds) | metric (str) | value (float)
 """
 import logging
@@ -28,20 +28,31 @@ def _clean(df: pd.DataFrame) -> pd.DataFrame:
     return df.dropna(subset=["value"]).reset_index(drop=True)
 
 
-def load_baseline() -> pd.DataFrame:
-    """Load the fixed baseline dataset (committed to the repo, never changes)."""
-    if not config.BASELINE_PATH.exists():
+def _load_csv(path, what: str, build_cmd: str) -> pd.DataFrame:
+    if not path.exists():
         raise FileNotFoundError(
-            f"{config.BASELINE_PATH} not found. Create it once with "
-            "`python -m retraining.build_baseline` and commit it."
+            f"{path} not found. Create it once with "
+            f"`{build_cmd}` and commit it."
         )
-    df = pd.read_csv(config.BASELINE_PATH)
+    df = pd.read_csv(path)
     missing = set(COLUMNS) - set(df.columns)
     if missing:
-        raise ValueError(f"Baseline file is missing columns: {sorted(missing)}")
+        raise ValueError(f"{what} file is missing columns: {sorted(missing)}")
     df = _clean(df)
-    logger.info("Baseline loaded: %d rows, %d metrics", len(df), df["metric"].nunique())
+    logger.info("%s loaded: %d rows, %d series", what, len(df), df["metric"].nunique())
     return df
+
+
+def load_baseline() -> pd.DataFrame:
+    """The fixed 70% training baseline: Chronos' original data (committed, never changes)."""
+    return _load_csv(config.BASELINE_PATH, "Baseline (Chronos original data)",
+                     "python -m retraining.build_replay")
+
+
+def load_reference() -> pd.DataFrame:
+    """Healthy snapshot of OUR OWN Prometheus metrics, used as the covariate-drift reference."""
+    return _load_csv(config.REFERENCE_PATH, "Drift reference",
+                     "python -m retraining.build_baseline")
 
 
 def _query_range(query: str, start: float, end: float, step: int) -> list[tuple[float, float]]:

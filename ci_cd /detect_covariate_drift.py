@@ -1,11 +1,10 @@
-"""Detect covariate drift by comparing the fixed baseline metric distribution
-against a recent window of live Prometheus metrics, using Evidently.
+"""Detect covariate drift by comparing the fixed REFERENCE metric distribution
+against a recent window of live Prometheus metrics, using a two-sample KS test.
 
-Reuses the same baseline CSV and Prometheus fetcher as the retraining package
-so "reference" here means exactly the same 70% baseline retraining trains on.
+The reference is data/reference.csv (a healthy snapshot of our own Prometheus metrics,
+built once with `python -m retraining.build_baseline`). An Evidently HTML report is
+written as a best-effort extra.
 """
-
-
 import os
 from typing import List
 
@@ -13,9 +12,10 @@ import pandas as pd
 from scipy.stats import ks_2samp
 
 from retraining import config
-from retraining.data_sources import fetch_prometheus_data, load_baseline
+from retraining.data_sources import fetch_prometheus_data, load_reference
 
-KS_PVALUE_THRESHOLD = 0.05   # standard default: p < 0.05 => distributions differ
+KS_PVALUE_THRESHOLD = 0.05   # significance level (Bonferroni-corrected across metrics)
+KS_STAT_THRESHOLD = 0.2      # also require a practically meaningful shift
 
 
 def _to_wide(df: pd.DataFrame) -> pd.DataFrame:
@@ -25,7 +25,7 @@ def _to_wide(df: pd.DataFrame) -> pd.DataFrame:
     bucketed = df.copy()
     bucketed["bucket"] = (bucketed["timestamp"] // config.STEP_SECONDS).astype(int)
     wide = bucketed.pivot_table(index="bucket", columns="metric", values="value", aggfunc="mean")
-    return wide.dropna(how="any")
+    return wide.dropna(how="all")
 
 
 def _write_evidently_report(reference_data: pd.DataFrame, current_data: pd.DataFrame) -> None:
@@ -44,17 +44,17 @@ def _write_evidently_report(reference_data: pd.DataFrame, current_data: pd.DataF
 
 
 def detect_covariate_drift() -> List[str]:
-    """Compare the baseline metric distribution against recent production metrics.
+    """Compare the reference metric distribution against recent production metrics.
 
     Returns:
         List of metric names where covariate drift was detected.
     """
-    reference_data = _to_wide(load_baseline())
+    reference_data = _to_wide(load_reference())
     current_data = _to_wide(fetch_prometheus_data(config.COVARIATE_LOOKBACK_HOURS))
 
     shared_cols = [c for c in reference_data.columns if c in current_data.columns]
     if not shared_cols:
-        raise ValueError("No metrics in common between baseline and current data.")
+        raise ValueError("No metrics in common between reference and current data.")
     reference_data, current_data = reference_data[shared_cols], current_data[shared_cols]
 
     if len(current_data) < 2:
@@ -62,10 +62,14 @@ def detect_covariate_drift() -> List[str]:
 
     _write_evidently_report(reference_data, current_data)
 
+    alpha = KS_PVALUE_THRESHOLD / len(shared_cols)   # Bonferroni across metrics
     drifted_columns: List[str] = []
     for col in shared_cols:
-        _, p_value = ks_2samp(reference_data[col], current_data[col])
-        if p_value < KS_PVALUE_THRESHOLD:
+        ref, cur = reference_data[col].dropna(), current_data[col].dropna()
+        if len(ref) < 2 or len(cur) < 2:
+            continue
+        stat, p_value = ks_2samp(ref, cur)
+        if p_value < alpha and stat > KS_STAT_THRESHOLD:
             drifted_columns.append(col)
 
     if drifted_columns:

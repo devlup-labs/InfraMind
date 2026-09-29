@@ -1,12 +1,28 @@
+import math
 import os
 from typing import Dict, List
 
+from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
-DATABASE_URL = os.environ["DATABASE_URL"]
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+if not DATABASE_URL:
+    raise RuntimeError("DATABASE_URL is not set.")
+if DATABASE_URL.startswith("postgres://"):      # some providers still hand out the old scheme
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Newer SQLAlchemy may default "postgresql://" to the psycopg (v3) driver. We ship psycopg2-binary,
+# so pin the driver explicitly when it is installed.
+if DATABASE_URL.startswith("postgresql://"):
+    try:
+        import psycopg2  # noqa: F401
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+    except ImportError:
+        pass
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-
 
 _schema_ready = False
 
@@ -23,6 +39,9 @@ def ensure_schema():
                 solved       BOOLEAN NOT NULL DEFAULT FALSE
             )
         """))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS idx_errors_metric_time ON errors (metric_name, time DESC)"
+        ))
     _schema_ready = True
 
 
@@ -34,7 +53,10 @@ def _ensure_schema_once():
 
 
 def add_error(metric_name: str, error_value: float, solved: bool = False):
-    """Inserts a new row into the errors table."""
+    """Inserts a new row into the errors table (non-finite values are ignored)."""
+    if error_value is None or not math.isfinite(error_value):
+        print(f"[SKIP] non-finite error for metric_name={metric_name}")
+        return
     _ensure_schema_once()
     with engine.begin() as conn:
         conn.execute(
@@ -44,7 +66,7 @@ def add_error(metric_name: str, error_value: float, solved: bool = False):
             """),
             {"metric_name": metric_name, "error_value": error_value, "solved": solved},
         )
-    print(f"[OK] added metric_name={metric_name} error_value={error_value} solved={solved}")
+    print(f"[OK] Added error: metric_name={metric_name} error_value={error_value} solved={solved}")
 
 
 def get_error_history(limit_per_metric: int = 500) -> Dict[str, List[float]]:
