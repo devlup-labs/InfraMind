@@ -5,3 +5,5 @@ __pycache__
 .gitignore
 .env
 .venv-agents
+infravenv
+*.log

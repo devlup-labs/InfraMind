@@ -1,0 +1,48 @@
+name: monitoring_cycle_15
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+# Queue instead of cancelling: cancelling mid-run can leave a half-written error row.
+concurrency:
+  group: monitoring_group
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  monitoring:
+    name: Prometheus → Chronos Monitoring Cycle
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MODEL_NAME: ${{ vars.MODEL_NAME }}
+      PROMETHEUS_URL: ${{ vars.PROMETHEUS_URL }}   # must be reachable from the internet (or use a self-hosted runner)
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}            # needed if MODEL_NAME is your private fine-tuned repo
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Cache Hugging Face models
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ vars.MODEL_NAME }}
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Monitoring Cycle
+        working-directory: ci_cd
+        run: python model_predictions.py
