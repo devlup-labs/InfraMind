@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inframind-model-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mock-model
+  template:
+    metadata:
+      labels:
+        app: mock-model
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "8000"
+    spec:
+      containers:
+      - name: fastapimodel
+        image: inframind-model:latest
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8000
+        env:
+        - name: INFERENCE_TIMEOUT
+          valueFrom:
+            configMapKeyRef:
+              name: inframind-app-config
+              key: INFERENCE_TIMEOUT
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "900Mi"
+          limits:
+            cpu: "1000m"
+            memory: "1200Mi"

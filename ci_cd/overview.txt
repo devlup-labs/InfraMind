@@ -1,0 +1,23 @@
+-> The prometheus image is port forwarded and the fastapi app docker image is run and port forwarded . 
+-> As a result the prometheus will start scrapping all the metrics on an interval of 2 seconds
+-> The evaluation time is set to 60 seconds i.e the calculations of all the metrics will take place after every one minute , 
+   based on the metrcis scarpped over the past 5 minutes !
+-> The 15 minutes pipeline triggered will fetch the past 33 recent points  , and this will act as the base data (context length)
+   for the amazon chronos model . The error will then be calculated based on the final value calculated by the chronos mazaon model 
+   and the actuall 33rd set of 4 metrics scrapped originally by prometheus. And this error will be stored in the postgres database .
+-> *Daily job : step 1, concept drift:*
+     it reads the last 500 stored errors per metric, takes abs(), and replays them through ADWIN. Only drift in the newest 96 errors (~24 h) counts, 
+    and at least 30 errors per metric are needed.
+
+               Step 2, covariate drift:* it compares the last 24 h of live data (~1,440 values per metric) against reference.csv with a KS test per metric.
+               A metric drifts if p < 0.05/4 and the KS statistic is above 0.2. No predictions are involved.
+
+              *Step 3, retrain*, only if either drift flag is true or force_retrain is ticked: it fetches 7 days of live data and holds out the newest 10% for validation.
+8. Both datasets are cut into sliding windows (32 context + 64 target, stride 1) and mixed 70% Chronos replay / 30% live. Targets are always real values, never predictions.
+9. The model is scored on the live validation windows, fine-tuned for 3 epochs, then scored again. Scoring uses 64-step forecasts and a scale-free normalized MAE.
+
+We are using a striding window over here for the purpose of making the new 30% of the dataset such that a context length of 
+32 is beign used  , and the target length is set to 64 i.e the output predicts the future 64 sets of values , such that each set consists 
+prediction made for 4 metrics .
+
+Whenever the evaluation has to take place i.e after every minute   , it performs the evaluation over metrics scrapped over last 5 minutes
